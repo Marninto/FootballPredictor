@@ -5,7 +5,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from config.load_env import load_env_file
-from config.settings import DEFAULT_DATABASE_URL
+from config.settings import get_database_url
 from db.base import Base
 import db.models
 
@@ -16,7 +16,8 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 load_env_file()
-config.set_main_option('sqlalchemy.url', os.getenv('DATABASE_URL', DEFAULT_DATABASE_URL))
+database_url = get_database_url()
+config.set_main_option('sqlalchemy.url', database_url.replace('%', '%%'))
 
 target_metadata = Base.metadata
 

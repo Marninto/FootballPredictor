@@ -12,6 +12,11 @@ def create_bot(settings: Settings):
 
     @bot.event
     async def on_ready():
+        if not getattr(bot, 'slash_commands_synced', False):
+            synced_commands = await bot.tree.sync()
+            bot.slash_commands_synced = True
+            print(f'Synced {len(synced_commands)} slash commands')
+
         print(f'Logged in as {bot.user}')
 
     register_public_commands(bot)

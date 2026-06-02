@@ -1,15 +1,14 @@
 from contextlib import contextmanager
-import os
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from config.load_env import load_env_file
-from config.settings import DEFAULT_DATABASE_URL
+from config.settings import get_database_url
 
 
 load_env_file()
-DATABASE_URL = os.getenv('DATABASE_URL', DEFAULT_DATABASE_URL)
+DATABASE_URL = get_database_url()
 
 engine = create_engine(
     DATABASE_URL,
