@@ -1,0 +1,2 @@
+class LeaderboardService:
+    pass

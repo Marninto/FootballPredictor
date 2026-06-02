@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.py[cod]
+.venv/
+football_predictor.db
+*.sqlite
+*.sqlite3

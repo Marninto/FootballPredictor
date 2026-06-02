@@ -1,0 +1,2 @@
+class LeaderboardRepository:
+    pass
