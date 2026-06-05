@@ -5,16 +5,20 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1c528f56-7333-41bf-9cd6-cc3d4b314ac0" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/wc26.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/bot.py" beforeDir="false" afterPath="$PROJECT_DIR$/bot.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/commands/admin.py" beforeDir="false" afterPath="$PROJECT_DIR$/commands/admin.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/commands/public.py" beforeDir="false" afterPath="$PROJECT_DIR$/commands/public.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/migrations/env.py" beforeDir="false" afterPath="$PROJECT_DIR$/migrations/env.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" afterPath="$PROJECT_DIR$/requirements.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/db/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/db/database.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/db/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/db/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/domain/scoring_rules.py" beforeDir="false" afterPath="$PROJECT_DIR$/domain/scoring_rules.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/leaderboard_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/leaderboard_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/prediction_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/prediction_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/services/scoring_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/scoring_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/tournament_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/tournament_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/services/user_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/services/user_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/time.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/time.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/validation.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/validation.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -22,7 +26,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="EmbeddingIndexingInfo">
-    <option name="cachedIndexableFilesCount" value="44" />
+    <option name="cachedIndexableFilesCount" value="51" />
   </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
@@ -40,23 +44,23 @@
   </component>
   <component name="NextEditCompletionFeaturesState">
     <decayedCancelled>
-      <entry key="MS100" value="1.480587412426308" />
-      <entry key="MS500" value="3.2382366349929397" />
-      <entry key="S2" value="8.735394113759767" />
-      <entry key="S5" value="14.440902856027169" />
-      <entry key="S10" value="18.63654053807787" />
-      <entry key="S30" value="32.23636469058337" />
-      <entry key="S60" value="45.45541519015108" />
-      <entry key="M2" value="58.15255974912686" />
-      <entry key="M5" value="69.72081807900057" />
-      <entry key="M10" value="74.55585069158069" />
-      <entry key="M15" value="76.38888651884547" />
-      <entry key="M30" value="81.39511219733859" />
-      <entry key="H1" value="109.31381928951363" />
-      <entry key="H2" value="198.21053475005004" />
-      <entry key="H4" value="331.16265228080783" />
-      <entry key="D1" value="564.3750540269333" />
-      <entry key="W1" value="623.4404253456984" />
+      <entry key="MS100" value="1.192315853006073" />
+      <entry key="MS500" value="2.8313426158716624" />
+      <entry key="S2" value="8.153080946681591" />
+      <entry key="S5" value="17.172903976063317" />
+      <entry key="S10" value="28.443595289896628" />
+      <entry key="S30" value="74.00990918323262" />
+      <entry key="S60" value="132.68310096810652" />
+      <entry key="M2" value="218.62677729949903" />
+      <entry key="M5" value="402.71930817082017" />
+      <entry key="M10" value="681.9976428588145" />
+      <entry key="M15" value="949.8824586226813" />
+      <entry key="M30" value="1615.179598550508" />
+      <entry key="H1" value="2411.811186235999" />
+      <entry key="H2" value="3132.05763522846" />
+      <entry key="H4" value="3700.6186162560625" />
+      <entry key="D1" value="4451.645119470223" />
+      <entry key="W1" value="4627.745817289974" />
     </decayedCancelled>
     <decayedSelected>
       <entry key="MS100" value="0.0" />
@@ -64,37 +68,37 @@
       <entry key="S2" value="0.0" />
       <entry key="S5" value="0.0" />
       <entry key="S10" value="0.0" />
-      <entry key="S30" value="3.9977517484855983E-171" />
-      <entry key="S60" value="8.9223218249916E-86" />
-      <entry key="M2" value="4.2219859204494834E-43" />
-      <entry key="M5" value="1.70156143610504E-17" />
-      <entry key="M10" value="5.958066006061754E-9" />
-      <entry key="M15" value="4.510297448318359E-6" />
-      <entry key="M30" value="0.004319863086405491" />
-      <entry key="H1" value="0.16110723992936815" />
-      <entry key="H2" value="1.0427104408907055" />
-      <entry key="H4" value="2.6899973438261995" />
-      <entry key="D1" value="5.9651855868944805" />
-      <entry key="W1" value="6.841750209159154" />
+      <entry key="S30" value="2.93284679733936E-264" />
+      <entry key="S60" value="2.4166550363721346E-132" />
+      <entry key="M2" value="2.1972788203662992E-66" />
+      <entry key="M5" value="8.267895708424712E-27" />
+      <entry key="M10" value="1.3133454927768256E-13" />
+      <entry key="M15" value="3.545854976040952E-9" />
+      <entry key="M30" value="1.211233503283933E-4" />
+      <entry key="H1" value="0.026977021852098774" />
+      <entry key="H2" value="0.4266808930426122" />
+      <entry key="H4" value="1.7207650940329298" />
+      <entry key="D1" value="5.537140998761755" />
+      <entry key="W1" value="6.7693574300450035" />
     </decayedSelected>
     <decayedShown>
-      <entry key="MS100" value="1.3890618064418376" />
-      <entry key="MS500" value="3.1983223236495695" />
-      <entry key="S2" value="8.710584778292798" />
-      <entry key="S5" value="14.424693084838319" />
-      <entry key="S10" value="18.626113178262614" />
-      <entry key="S30" value="32.23036139180844" />
-      <entry key="S60" value="45.45109717523762" />
-      <entry key="M2" value="58.14972951619278" />
-      <entry key="M5" value="69.71943193218563" />
-      <entry key="M10" value="74.55510353111264" />
-      <entry key="M15" value="76.38837926540116" />
-      <entry key="M30" value="81.39915635458813" />
-      <entry key="H1" value="109.47469996637341" />
-      <entry key="H2" value="199.25295093739305" />
-      <entry key="H4" value="333.85235309574165" />
-      <entry key="D1" value="570.3401440918847" />
-      <entry key="W1" value="630.2821602013755" />
+      <entry key="MS100" value="1.1574224752031133" />
+      <entry key="MS500" value="2.8123456441983365" />
+      <entry key="S2" value="8.139540064822478" />
+      <entry key="S5" value="17.161238627477168" />
+      <entry key="S10" value="28.43374947828004" />
+      <entry key="S30" value="74.00093701021703" />
+      <entry key="S60" value="132.67485399037395" />
+      <entry key="M2" value="218.61987571052637" />
+      <entry key="M5" value="402.714167995706" />
+      <entry key="M10" value="681.9932369955383" />
+      <entry key="M15" value="949.8783039014261" />
+      <entry key="M30" value="1615.1760553907586" />
+      <entry key="H1" value="2411.8353305815726" />
+      <entry key="H2" value="3132.4823834727804" />
+      <entry key="H4" value="3702.3381461576273" />
+      <entry key="D1" value="4457.181974135579" />
+      <entry key="W1" value="4634.515130655929" />
     </decayedShown>
   </component>
   <component name="ProjectColorInfo">{
@@ -106,29 +110,29 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.MCP Project settings loaded": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "codeWithMe.voiceChat.enabledByDefault": "false",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "main",
-    "junie.onboarding.icon.badge.shown": "true",
-    "last_opened_file_path": "C:/Users/shiti/PycharmProjects/FootballPredictor",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "preferences.pluginManager",
-    "to.speed.mode.migration.done": "true",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/shiti/PycharmProjects/FootballPredictor&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -147,7 +151,8 @@
       <workItem from="1780412946124" duration="2742000" />
       <workItem from="1780417249945" duration="1238000" />
       <workItem from="1780419533078" duration="396000" />
-      <workItem from="1780420042992" duration="5665000" />
+      <workItem from="1780420042992" duration="8241000" />
+      <workItem from="1780676589218" duration="5604000" />
     </task>
     <servers />
   </component>

@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from functools import wraps
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -24,7 +25,7 @@ SessionLocal = sessionmaker(
 
 
 @contextmanager
-def db_transaction():
+def _transaction_context():
     db = SessionLocal()
     try:
         yield db
@@ -34,3 +35,15 @@ def db_transaction():
         raise
     finally:
         db.close()
+
+
+def db_transaction(function=None):
+    if function is None:
+        return _transaction_context()
+
+    @wraps(function)
+    def wrapper(*args, **kwargs):
+        with _transaction_context() as db:
+            return function(*args, db=db, **kwargs)
+
+    return wrapper
