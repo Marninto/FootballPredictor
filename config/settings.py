@@ -24,7 +24,16 @@ def _parse_int_list(value):
 
 
 def get_database_url():
-    return _required_env('DATABASE_URL')
+    url = _required_env('DATABASE_URL')
+
+    if url.startswith('postgresql://'):
+        url = url.replace(
+            'postgresql://',
+            'postgresql+psycopg://',
+            1,
+        )
+
+    return url
 
 
 def load_settings():
