@@ -1,4 +1,4 @@
-discord.py
-SQLAlchemy>=2.0
-alembic>=1.13
-psycopg[binary]>=3.2
+discord.py==2.7.1
+SQLAlchemy==2.0.50
+alembic==1.18.4
+psycopg[binary]==3.3.4

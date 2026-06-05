@@ -3,7 +3,7 @@ import json
 from db.pagination import paginate_query
 from db.database import db_transaction
 from db.models import Fixture, FixtureEvent, Ruleset, ScorePrediction, Tournament, User
-from domain.scoring_rules import DEFAULT_RULESET_CONFIG
+from domain.scoring_rules import DEFAULT_RULESET_CONFIG, validate_ruleset_config
 
 
 class TournamentService:
@@ -130,10 +130,10 @@ class TournamentService:
 
     def _parse_ruleset_config(self, config_json):
         if isinstance(config_json, str) and config_json.strip():
-            return json.loads(config_json)
+            return validate_ruleset_config(json.loads(config_json))
         if config_json:
-            return config_json
-        return DEFAULT_RULESET_CONFIG
+            return validate_ruleset_config(config_json)
+        return validate_ruleset_config(DEFAULT_RULESET_CONFIG)
 
     def _fixture_item(self, db, fixture, user_id):
         prediction = ScorePrediction.find_by_user_and_fixture(db, user_id, fixture.id) if user_id else None

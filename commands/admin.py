@@ -45,10 +45,14 @@ def register_admin_commands(bot, settings):
 
     @bot.tree.command(name='upsert_rules', description='Create or update scoring rules')
     @app_commands.describe(
-        name='Ruleset name',
-        config_json='Ruleset JSON config',
+        name='Optional ruleset name. Defaults to default',
+        config_json='Optional ruleset JSON config. Defaults to standard config',
     )
-    async def upsert_rules(interaction: discord.Interaction, name: str, config_json: str):
+    async def upsert_rules(
+        interaction: discord.Interaction,
+        name: str | None = None,
+        config_json: str | None = None,
+    ):
         if not _is_admin(interaction, settings):
             await _deny_admin(interaction)
             return

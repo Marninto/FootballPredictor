@@ -30,7 +30,8 @@ ADMIN_COMMAND_HELP = [
 
 
 def create_bot(settings: Settings):
-    intents = discord.Intents.all()
+    intents = discord.Intents.default()
+    intents.message_content = False
     bot = commands.Bot(command_prefix=settings.command_prefix, intents=intents, help_command=None)
 
     @bot.event
@@ -50,6 +51,15 @@ def create_bot(settings: Settings):
             command_lines.extend(ADMIN_COMMAND_HELP)
 
         await ctx.send('```text\n' + '\n'.join(command_lines) + '\n```')
+
+    @bot.tree.command(name='help', description='Show bot commands')
+    async def slash_help(interaction: discord.Interaction):
+        command_lines = list(PUBLIC_COMMAND_HELP)
+        if interaction.user.id in settings.admin_user_ids:
+            command_lines.extend(['', 'Private/admin commands:'])
+            command_lines.extend(ADMIN_COMMAND_HELP)
+
+        await interaction.response.send_message('```text\n' + '\n'.join(command_lines) + '\n```', ephemeral=True)
 
     @bot.event
     async def on_command_error(ctx, error):

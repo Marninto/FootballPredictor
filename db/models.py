@@ -338,7 +338,7 @@ class ScorePrediction(TimestampMixin, Base):
 class EventPrediction(TimestampMixin, Base):
     __tablename__ = 'event_predictions'
     __table_args__ = (
-        UniqueConstraint('user_id', 'fixture_id', 'event_type', 'player_name', name='uq_event_predictions_user_fixture_event_player'),
+        UniqueConstraint('user_id', 'fixture_id', 'event_type', name='uq_event_predictions_user_fixture_event'),
         Index('ix_event_predictions_user_fixture', 'user_id', 'fixture_id'),
     )
 
@@ -361,7 +361,6 @@ class EventPrediction(TimestampMixin, Base):
                 cls.user_id == int(data['user_id']),
                 cls.fixture_id == int(data['fixture_id']),
                 cls.event_type == data['event_type'].strip(),
-                cls.player_name == data['player_name'].strip(),
             )
         )
 
@@ -378,6 +377,7 @@ class EventPrediction(TimestampMixin, Base):
             )
             db.add(prediction)
         else:
+            prediction.player_name = data['player_name'].strip()
             prediction.points_awarded = 0
             prediction.scoring_reason_json = None
 
