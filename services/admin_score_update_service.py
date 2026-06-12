@@ -13,13 +13,19 @@ class AdminScoreUpdateService:
 
         rules = fixture.tournament.ruleset.config_json.get('score_prediction', {})
         updated_count = 0
+        awarded_users = {}
         for prediction in ScorePrediction.find_by_fixture(db, fixture.id):
             points, reason = self._score_prediction_points(prediction, fixture, rules)
             ScorePrediction.award_points(prediction, points, reason)
+            if points > 0:
+                self._record_award(awarded_users, prediction.user, points)
             updated_count += 1
 
         db.flush()
-        return f'Awarded score prediction points for {updated_count} predictions.'
+        return {
+            'message': f'Awarded score prediction points for {updated_count} predictions.',
+            'awarded_users': self._awarded_user_items(awarded_users),
+        }
 
     @db_transaction
     def award_event_predictions_for_fixture(self, fixture_id, db):
@@ -44,7 +50,7 @@ class AdminScoreUpdateService:
                 points = int(rules.get(prediction.event_type, 0))
                 EventPrediction.award_points(prediction, points, prediction.event_type)
                 if points > 0:
-                    awarded_users[prediction.user.discord_user_id] = prediction.user.discord_display_name
+                    self._record_award(awarded_users, prediction.user, points)
             else:
                 EventPrediction.award_points(prediction, 0, 'no_match')
             updated_count += 1
@@ -52,13 +58,7 @@ class AdminScoreUpdateService:
         db.flush()
         return {
             'message': f'Awarded event prediction points for {updated_count} predictions.',
-            'awarded_users': [
-                {
-                    'discord_user_id': discord_user_id,
-                    'display_name': display_name,
-                }
-                for discord_user_id, display_name in awarded_users.items()
-            ],
+            'awarded_users': self._awarded_user_items(awarded_users),
         }
 
     @db_transaction
@@ -125,6 +125,25 @@ class AdminScoreUpdateService:
         if event_type == 'goal':
             return 'goalscorer'
         return event_type
+
+    def _awarded_user_items(self, awarded_users):
+        return [
+            {
+                'discord_user_id': discord_user_id,
+                **award,
+            }
+            for discord_user_id, award in awarded_users.items()
+        ]
+
+    def _record_award(self, awarded_users, user, points):
+        award = awarded_users.setdefault(
+            user.discord_user_id,
+            {
+                'display_name': user.discord_display_name,
+                'points': 0,
+            },
+        )
+        award['points'] += points
 
     def _result_bucket(self, difference):
         if difference > 0:

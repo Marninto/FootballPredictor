@@ -40,15 +40,19 @@ def create_bot(settings: Settings):
     @bot.event
     async def on_ready():
         if not getattr(bot, 'slash_commands_synced', False):
-            global_commands = await bot.tree.sync()
             guild_command_counts = []
             for guild in bot.guilds:
+                bot.tree.clear_commands(guild=guild)
                 bot.tree.copy_global_to(guild=guild)
                 guild_commands = await bot.tree.sync(guild=guild)
                 guild_command_counts.append(f'{guild.name}: {len(guild_commands)}')
 
+            bot.tree.clear_commands(guild=None)
+            removed_global_commands = await bot.tree.sync()
             bot.slash_commands_synced = True
-            sync_messages = [f'Synced {len(global_commands)} global slash commands.']
+            sync_messages = [
+                f'Removed global slash commands; {len(removed_global_commands)} remain globally.'
+            ]
             if guild_command_counts:
                 sync_messages.append(f'Synced guild slash commands: {", ".join(guild_command_counts)}.')
             await push_admin_log(bot, '\n'.join(sync_messages))

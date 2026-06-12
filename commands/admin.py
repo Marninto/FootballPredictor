@@ -39,13 +39,16 @@ async def _push_admin_log(interaction, message):
     await push_admin_log(interaction.client, f'{message}\nTriggered by: {interaction.user.mention}')
 
 
-async def _push_prediction_awards(interaction, fixture_id, awarded_users):
+async def _push_prediction_awards(interaction, fixture_id, prediction_type, awarded_users):
     if not awarded_users:
         return
-    mentions = ', '.join(f'<@{user["discord_user_id"]}>' for user in awarded_users)
+    recipients = ', '.join(
+        f'<@{user["discord_user_id"]}> (+{user["points"]})'
+        for user in awarded_users
+    )
     await push_prediction_award_log(
         interaction.client,
-        f'Fixture #{fixture_id} event prediction points awarded to: {mentions}',
+        f'Fixture #{fixture_id} {prediction_type} prediction points awarded to: {recipients}',
     )
 
 
@@ -75,8 +78,15 @@ async def _update_score_and_award(
         }
     )
     await _push_admin_log(interaction, fixture_message)
-    score_message = admin_score_update_service.award_score_predictions_for_fixture(fixture_id)
+    score_result = admin_score_update_service.award_score_predictions_for_fixture(fixture_id)
+    score_message = score_result['message']
     await _push_admin_log(interaction, score_message)
+    await _push_prediction_awards(
+        interaction,
+        fixture_id,
+        'score',
+        score_result['awarded_users'],
+    )
     leaderboard_message = admin_score_update_service.refresh_leaderboard_for_fixture(fixture_id)
     await _push_admin_log(interaction, leaderboard_message)
     return f'{fixture_message} {score_message} {leaderboard_message}'
@@ -284,9 +294,10 @@ def register_admin_commands(bot, settings):
 
         await interaction.response.defer(ephemeral=True)
         try:
-            score_message = admin_score_update_service.award_score_predictions_for_fixture(fixture_id)
-            award_result = admin_score_update_service.award_event_predictions_for_fixture(fixture_id)
-            event_message = award_result['message']
+            score_result = admin_score_update_service.award_score_predictions_for_fixture(fixture_id)
+            score_message = score_result['message']
+            event_result = admin_score_update_service.award_event_predictions_for_fixture(fixture_id)
+            event_message = event_result['message']
             leaderboard_message = admin_score_update_service.refresh_leaderboard_for_fixture(fixture_id)
         except (ValueError, LookupError) as error:
             await _send_admin_error(interaction, error)
@@ -299,7 +310,18 @@ def register_admin_commands(bot, settings):
             f'{event_message}\n'
             f'{leaderboard_message}',
         )
-        await _push_prediction_awards(interaction, fixture_id, award_result['awarded_users'])
+        await _push_prediction_awards(
+            interaction,
+            fixture_id,
+            'score',
+            score_result['awarded_users'],
+        )
+        await _push_prediction_awards(
+            interaction,
+            fixture_id,
+            'event',
+            event_result['awarded_users'],
+        )
         await interaction.followup.send(
             f'Recomputed points for fixture #{fixture_id}. '
             f'{score_message} {event_message} {leaderboard_message}',
@@ -342,7 +364,12 @@ def register_admin_commands(bot, settings):
         award_result = admin_score_update_service.award_event_predictions_for_fixture(fixture_id)
         score_message = award_result['message']
         await _push_admin_log(interaction, score_message)
-        await _push_prediction_awards(interaction, fixture_id, award_result['awarded_users'])
+        await _push_prediction_awards(
+            interaction,
+            fixture_id,
+            'event',
+            award_result['awarded_users'],
+        )
         leaderboard_message = admin_score_update_service.refresh_leaderboard_for_fixture(fixture_id)
         await _push_admin_log(interaction, leaderboard_message)
         await interaction.followup.send(f'{event_message} {score_message} {leaderboard_message}', ephemeral=True)
