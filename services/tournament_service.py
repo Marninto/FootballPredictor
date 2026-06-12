@@ -2,11 +2,22 @@ import json
 
 from db.pagination import paginate_query
 from db.database import db_transaction
-from db.models import Fixture, FixtureEvent, Ruleset, ScorePrediction, Tournament, User
+from db.models import EventPrediction, Fixture, FixtureEvent, Ruleset, ScorePrediction, Tournament, User
 from domain.scoring_rules import DEFAULT_RULESET_CONFIG, validate_ruleset_config
 
 
 class TournamentService:
+    @db_transaction
+    def get_fixture_details(self, fixture_id, db=None):
+        fixture = Fixture.get_by_id(db, fixture_id)
+        return {
+            'id': fixture.id,
+            'home_team': fixture.home_team,
+            'away_team': fixture.away_team,
+            'home_score': fixture.home_score,
+            'away_score': fixture.away_score,
+        }
+
     @db_transaction
     def list_active_tournaments(self, page=1, page_size=10, db=None):
         tournament_page = paginate_query(db, Tournament.active_statement(), page=page, page_size=page_size)
@@ -137,6 +148,14 @@ class TournamentService:
 
     def _fixture_item(self, db, fixture, user_id):
         prediction = ScorePrediction.find_by_user_and_fixture(db, user_id, fixture.id) if user_id else None
+        event_predictions = (
+            EventPrediction.find_by_user_and_fixture(db, user_id, fixture.id)
+            if user_id
+            else []
+        )
+        goalscorer_predictions = [
+            event for event in event_predictions if event.event_type == 'goalscorer'
+        ]
         return {
             'id': fixture.id,
             'kickoff_at': fixture.kickoff_at,
@@ -146,5 +165,6 @@ class TournamentService:
             'predicted_away_score': prediction.predicted_away_score if prediction else None,
             'home_score': fixture.home_score,
             'away_score': fixture.away_score,
-            'predicted': prediction is not None,
+            'predicted_goalscorers': [event.player_name for event in goalscorer_predictions],
+            'predicted': prediction is not None or bool(event_predictions),
         }

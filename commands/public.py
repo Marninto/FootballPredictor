@@ -87,14 +87,23 @@ def _fixtures_embed(data):
     if not data['items']:
         embed.add_field(name='No fixtures', value='No fixtures matched this filter.', inline=False)
     for item in data['items']:
-        predicted_home = _format_value(item['predicted_home_score'])
-        predicted_away = _format_value(item['predicted_away_score'])
-        real_home = _format_value(item['home_score'])
-        real_away = _format_value(item['away_score'])
+        predicted_score = (
+            f'{item["predicted_home_score"]}-{item["predicted_away_score"]}'
+            if item['predicted_home_score'] is not None and item['predicted_away_score'] is not None
+            else 'N/A'
+        )
+        actual_score = (
+            f'{item["home_score"]}-{item["away_score"]}'
+            if item['home_score'] is not None and item['away_score'] is not None
+            else 'X-X'
+        )
+        predicted_goalscorers = ', '.join(item['predicted_goalscorers']) or 'N/A'
         embed.add_field(
             name=f'#{item["id"]} | {item["kickoff_at"].strftime("%Y-%m-%d %H:%M UTC")}',
             value=(
-                f'{item["home_team"]} ({predicted_home}/{real_home})-({predicted_away}/{real_away}) {item["away_team"]}\n'
+                f'{item["home_team"]} {actual_score} {item["away_team"]}\n'
+                f'Predicted score: {predicted_score}\n'
+                f'Predicted Goalscorer: {predicted_goalscorers}\n'
                 f'Predicted: {str(item["predicted"]).lower()}'
             ),
             inline=False,
@@ -111,6 +120,56 @@ async def _send_public_error(interaction, error):
         context=f'Command: {interaction.command}\nUser: {interaction.user} ({interaction.user.id})',
     )
     await interaction.response.send_message(str(error), ephemeral=True)
+
+
+def _parse_score(value, team_name):
+    try:
+        score = int(value)
+    except ValueError as error:
+        raise ValueError(f'{team_name} score must be a whole number.') from error
+    if score < 0:
+        raise ValueError(f'{team_name} score cannot be negative.')
+    return score
+
+
+class ScorePredictionModal(discord.ui.Modal):
+    def __init__(self, fixture, prediction_service, owner_id):
+        super().__init__(title=f'Predict fixture #{fixture["id"]}')
+        self.fixture = fixture
+        self.prediction_service = prediction_service
+        self.owner_id = owner_id
+        self.home_score = discord.ui.TextInput(
+            label=f'{fixture["home_team"]} score'[:45],
+            placeholder='0',
+            min_length=1,
+            max_length=2,
+        )
+        self.away_score = discord.ui.TextInput(
+            label=f'{fixture["away_team"]} score'[:45],
+            placeholder='0',
+            min_length=1,
+            max_length=2,
+        )
+        self.add_item(self.home_score)
+        self.add_item(self.away_score)
+
+    async def on_submit(self, interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message('This prediction form belongs to another user.', ephemeral=True)
+            return
+        try:
+            home_score = _parse_score(self.home_score.value, self.fixture['home_team'])
+            away_score = _parse_score(self.away_score.value, self.fixture['away_team'])
+            message = self.prediction_service.predict_score(
+                interaction.user,
+                self.fixture['id'],
+                home_score,
+                away_score,
+            )
+        except (ValueError, LookupError) as error:
+            await _send_public_error(interaction, error)
+            return
+        await interaction.response.send_message(message, ephemeral=True)
 
 
 class TournamentPaginationView(discord.ui.View):
@@ -313,6 +372,18 @@ def register_public_commands(bot):
             return
 
         await interaction.response.send_message(message, ephemeral=True)
+
+    @bot.tree.command(name='predict_score_form', description='Predict a score using team-labelled fields')
+    @app_commands.describe(fixture_id='Fixture id to predict')
+    async def predict_score_form(interaction: discord.Interaction, fixture_id: int):
+        try:
+            fixture = prediction_service.get_predictable_fixture_details(fixture_id)
+        except (ValueError, LookupError) as error:
+            await _send_public_error(interaction, error)
+            return
+        await interaction.response.send_modal(
+            ScorePredictionModal(fixture, prediction_service, interaction.user.id)
+        )
 
     @bot.tree.command(name='predict_event', description='Predict goalscorer or red card')
     @app_commands.describe(

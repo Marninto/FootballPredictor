@@ -209,9 +209,17 @@ class Fixture(TimestampMixin, Base):
         statement = select(cls).where(cls.tournament_id == tournament_id).order_by(cls.kickoff_at, cls.id)
         if fixture_filter == 'predicted':
             statement = statement.where(
-                exists().where(
-                    ScorePrediction.fixture_id == cls.id,
-                    ScorePrediction.user_id == int(user_id),
+                (
+                    exists().where(
+                        ScorePrediction.fixture_id == cls.id,
+                        ScorePrediction.user_id == int(user_id),
+                    )
+                )
+                | (
+                    exists().where(
+                        EventPrediction.fixture_id == cls.id,
+                        EventPrediction.user_id == int(user_id),
+                    )
                 )
             )
         elif fixture_filter == 'open':
@@ -387,6 +395,15 @@ class EventPrediction(TimestampMixin, Base):
     @classmethod
     def find_by_fixture(cls, db, fixture_id):
         return db.scalars(select(cls).where(cls.fixture_id == int(fixture_id))).all()
+
+    @classmethod
+    def find_by_user_and_fixture(cls, db, user_id, fixture_id):
+        return db.scalars(
+            select(cls).where(
+                cls.user_id == int(user_id),
+                cls.fixture_id == int(fixture_id),
+            )
+        ).all()
 
     @classmethod
     def count_distinct_users_for_tournament(cls, db, tournament_id):

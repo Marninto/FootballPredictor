@@ -6,7 +6,7 @@ from discord import app_commands
 from config.constants import ADMIN_LOG_CHANNEL_URL
 from services.admin_score_update_service import AdminScoreUpdateService
 from services.tournament_service import TournamentService
-from utils.discord_logs import log_error, push_admin_log
+from utils.discord_logs import log_error, push_admin_log, push_prediction_award_log
 
 
 def _is_admin(interaction, settings):
@@ -37,6 +37,95 @@ async def _send_admin_error(interaction, error):
 
 async def _push_admin_log(interaction, message):
     await push_admin_log(interaction.client, f'{message}\nTriggered by: {interaction.user.mention}')
+
+
+async def _push_prediction_awards(interaction, fixture_id, awarded_users):
+    if not awarded_users:
+        return
+    mentions = ', '.join(f'<@{user["discord_user_id"]}>' for user in awarded_users)
+    await push_prediction_award_log(
+        interaction.client,
+        f'Fixture #{fixture_id} event prediction points awarded to: {mentions}',
+    )
+
+
+def _parse_score(value, team_name):
+    try:
+        score = int(value)
+    except ValueError as error:
+        raise ValueError(f'{team_name} score must be a whole number.') from error
+    if score < 0:
+        raise ValueError(f'{team_name} score cannot be negative.')
+    return score
+
+
+async def _update_score_and_award(
+    interaction,
+    fixture_id,
+    home_score,
+    away_score,
+    tournament_service,
+    admin_score_update_service,
+):
+    fixture_message = tournament_service.update_fixture_score(
+        {
+            'fixture_id': fixture_id,
+            'home_score': home_score,
+            'away_score': away_score,
+        }
+    )
+    await _push_admin_log(interaction, fixture_message)
+    score_message = admin_score_update_service.award_score_predictions_for_fixture(fixture_id)
+    await _push_admin_log(interaction, score_message)
+    leaderboard_message = admin_score_update_service.refresh_leaderboard_for_fixture(fixture_id)
+    await _push_admin_log(interaction, leaderboard_message)
+    return f'{fixture_message} {score_message} {leaderboard_message}'
+
+
+class FinalScoreModal(discord.ui.Modal):
+    def __init__(self, fixture, tournament_service, admin_score_update_service, owner_id):
+        super().__init__(title=f'Update fixture #{fixture["id"]}')
+        self.fixture = fixture
+        self.tournament_service = tournament_service
+        self.admin_score_update_service = admin_score_update_service
+        self.owner_id = owner_id
+        self.home_score = discord.ui.TextInput(
+            label=f'{fixture["home_team"]} score'[:45],
+            placeholder='0',
+            default=str(fixture['home_score']) if fixture['home_score'] is not None else None,
+            min_length=1,
+            max_length=2,
+        )
+        self.away_score = discord.ui.TextInput(
+            label=f'{fixture["away_team"]} score'[:45],
+            placeholder='0',
+            default=str(fixture['away_score']) if fixture['away_score'] is not None else None,
+            min_length=1,
+            max_length=2,
+        )
+        self.add_item(self.home_score)
+        self.add_item(self.away_score)
+
+    async def on_submit(self, interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message('This score form belongs to another user.', ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            home_score = _parse_score(self.home_score.value, self.fixture['home_team'])
+            away_score = _parse_score(self.away_score.value, self.fixture['away_team'])
+            message = await _update_score_and_award(
+                interaction,
+                self.fixture['id'],
+                home_score,
+                away_score,
+                self.tournament_service,
+                self.admin_score_update_service,
+            )
+        except (ValueError, LookupError) as error:
+            await _send_admin_error(interaction, error)
+            return
+        await interaction.followup.send(message, ephemeral=True)
 
 
 def register_admin_commands(bot, settings):
@@ -152,23 +241,70 @@ def register_admin_commands(bot, settings):
 
         await interaction.response.defer(ephemeral=True)
         try:
-            fixture_message = tournament_service.update_fixture_score(
-                {
-                    'fixture_id': fixture_id,
-                    'home_score': home_score,
-                    'away_score': away_score,
-                }
+            message = await _update_score_and_award(
+                interaction,
+                fixture_id,
+                home_score,
+                away_score,
+                tournament_service,
+                admin_score_update_service,
             )
         except (ValueError, LookupError) as error:
             await _send_admin_error(interaction, error)
             return
 
-        await _push_admin_log(interaction, fixture_message)
-        score_message = admin_score_update_service.award_score_predictions_for_fixture(fixture_id)
-        await _push_admin_log(interaction, score_message)
-        leaderboard_message = admin_score_update_service.refresh_leaderboard_for_fixture(fixture_id)
-        await _push_admin_log(interaction, leaderboard_message)
-        await interaction.followup.send(f'{fixture_message} {score_message} {leaderboard_message}', ephemeral=True)
+        await interaction.followup.send(message, ephemeral=True)
+
+    @bot.tree.command(name='update_score_form', description='Update a final score using team-labelled fields')
+    @app_commands.describe(fixture_id='Fixture id')
+    async def update_score_form(interaction: discord.Interaction, fixture_id: int):
+        if not _is_admin(interaction, settings):
+            await _deny_admin(interaction)
+            return
+        try:
+            fixture = tournament_service.get_fixture_details(fixture_id)
+        except LookupError as error:
+            await _send_admin_error(interaction, error)
+            return
+        await interaction.response.send_modal(
+            FinalScoreModal(
+                fixture,
+                tournament_service,
+                admin_score_update_service,
+                interaction.user.id,
+            )
+        )
+
+    @bot.tree.command(name='recompute_points', description='Recompute score and event points for a fixture')
+    @app_commands.describe(fixture_id='Fixture id to recompute')
+    async def recompute_points(interaction: discord.Interaction, fixture_id: int):
+        if not _is_admin(interaction, settings):
+            await _deny_admin(interaction)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        try:
+            score_message = admin_score_update_service.award_score_predictions_for_fixture(fixture_id)
+            award_result = admin_score_update_service.award_event_predictions_for_fixture(fixture_id)
+            event_message = award_result['message']
+            leaderboard_message = admin_score_update_service.refresh_leaderboard_for_fixture(fixture_id)
+        except (ValueError, LookupError) as error:
+            await _send_admin_error(interaction, error)
+            return
+
+        await _push_admin_log(
+            interaction,
+            f'Recomputed points for fixture #{fixture_id}.\n'
+            f'{score_message}\n'
+            f'{event_message}\n'
+            f'{leaderboard_message}',
+        )
+        await _push_prediction_awards(interaction, fixture_id, award_result['awarded_users'])
+        await interaction.followup.send(
+            f'Recomputed points for fixture #{fixture_id}. '
+            f'{score_message} {event_message} {leaderboard_message}',
+            ephemeral=True,
+        )
 
     @bot.tree.command(name='update_event', description='Create or update goals and red cards')
     @app_commands.describe(
@@ -203,8 +339,10 @@ def register_admin_commands(bot, settings):
             return
 
         await _push_admin_log(interaction, event_message)
-        score_message = admin_score_update_service.award_event_predictions_for_fixture(fixture_id)
+        award_result = admin_score_update_service.award_event_predictions_for_fixture(fixture_id)
+        score_message = award_result['message']
         await _push_admin_log(interaction, score_message)
+        await _push_prediction_awards(interaction, fixture_id, award_result['awarded_users'])
         leaderboard_message = admin_score_update_service.refresh_leaderboard_for_fixture(fixture_id)
         await _push_admin_log(interaction, leaderboard_message)
         await interaction.followup.send(f'{event_message} {score_message} {leaderboard_message}', ephemeral=True)

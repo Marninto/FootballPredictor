@@ -5,6 +5,16 @@ from utils.validation import validate_fixture_open_for_prediction, validate_play
 
 class PredictionService:
     @db_transaction
+    def get_predictable_fixture_details(self, fixture_id, db=None):
+        fixture = Fixture.get_by_id(db, fixture_id)
+        validate_fixture_open_for_prediction(fixture)
+        return {
+            'id': fixture.id,
+            'home_team': fixture.home_team,
+            'away_team': fixture.away_team,
+        }
+
+    @db_transaction
     def predict_score(self, discord_user, fixture_id, home_score, away_score, db=None):
         fixture = Fixture.get_by_id(db, fixture_id)
         validate_fixture_open_for_prediction(fixture)

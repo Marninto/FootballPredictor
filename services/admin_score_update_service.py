@@ -34,6 +34,7 @@ class AdminScoreUpdateService:
         }
 
         updated_count = 0
+        awarded_users = {}
         for prediction in EventPrediction.find_by_fixture(db, fixture.id):
             event_key = (
                 prediction.event_type.strip(),
@@ -42,12 +43,23 @@ class AdminScoreUpdateService:
             if event_key in actual_events:
                 points = int(rules.get(prediction.event_type, 0))
                 EventPrediction.award_points(prediction, points, prediction.event_type)
+                if points > 0:
+                    awarded_users[prediction.user.discord_user_id] = prediction.user.discord_display_name
             else:
                 EventPrediction.award_points(prediction, 0, 'no_match')
             updated_count += 1
 
         db.flush()
-        return f'Awarded event prediction points for {updated_count} predictions.'
+        return {
+            'message': f'Awarded event prediction points for {updated_count} predictions.',
+            'awarded_users': [
+                {
+                    'discord_user_id': discord_user_id,
+                    'display_name': display_name,
+                }
+                for discord_user_id, display_name in awarded_users.items()
+            ],
+        }
 
     @db_transaction
     def refresh_leaderboard_for_fixture(self, fixture_id, db):
@@ -76,10 +88,16 @@ class AdminScoreUpdateService:
 
         predicted_difference = prediction.predicted_home_score - prediction.predicted_away_score
         actual_difference = fixture.home_score - fixture.away_score
-        if predicted_difference == actual_difference:
-            return int(rules.get('correct_goal_difference', 0)), 'correct_goal_difference'
+        reasons = []
+        points = 0
         if self._result_bucket(predicted_difference) == self._result_bucket(actual_difference):
-            return int(rules.get('correct_result', 0)), 'correct_result'
+            points += int(rules.get('correct_result', 0))
+            reasons.append('correct_result')
+        if predicted_difference == actual_difference:
+            points += int(rules.get('correct_goal_difference', 0))
+            reasons.append('correct_goal_difference')
+        if reasons:
+            return points, '+'.join(reasons)
         return 0, 'no_match'
 
     def _prediction_user_ids_for_tournament(self, db, tournament_id):

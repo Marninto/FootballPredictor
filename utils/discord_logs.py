@@ -1,17 +1,18 @@
 import traceback
 
-from config.constants import ADMIN_LOG_CHANNEL_ID
+from config.constants import ADMIN_LOG_CHANNEL_ID, PREDICTION_AWARD_CHANNEL_ID
 
 
 async def push_admin_log(client, message):
     await safe_push_admin_log(client, message)
 
 
+async def push_prediction_award_log(client, message):
+    await _safe_send_channel_message(client, PREDICTION_AWARD_CHANNEL_ID, message)
+
+
 async def safe_push_admin_log(client, message):
-    try:
-        await _send_admin_log(client, message)
-    except Exception as error:
-        print(f'Failed to push admin log: {error}')
+    await _safe_send_channel_message(client, ADMIN_LOG_CHANNEL_ID, message)
 
 
 async def log_error(client, title, error=None, context=None):
@@ -25,9 +26,20 @@ async def log_error(client, title, error=None, context=None):
 
 
 async def _send_admin_log(client, message):
-    channel = client.get_channel(ADMIN_LOG_CHANNEL_ID)
+    await _send_channel_message(client, ADMIN_LOG_CHANNEL_ID, message)
+
+
+async def _safe_send_channel_message(client, channel_id, message):
+    try:
+        await _send_channel_message(client, channel_id, message)
+    except Exception as error:
+        print(f'Failed to push Discord channel message: {error}')
+
+
+async def _send_channel_message(client, channel_id, message):
+    channel = client.get_channel(channel_id)
     if channel is None:
-        channel = await client.fetch_channel(ADMIN_LOG_CHANNEL_ID)
+        channel = await client.fetch_channel(channel_id)
     for chunk in _chunks(message, 1900):
         await channel.send(chunk)
 

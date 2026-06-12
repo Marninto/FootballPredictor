@@ -12,6 +12,7 @@ PUBLIC_COMMAND_HELP = [
     '/tournament - Show active tournaments',
     '/fixtures - Show tournament fixtures',
     '/predict - Predict fixture score',
+    '/predict_score_form - Predict with team-labelled score fields',
     '/predict_event - Predict goalscorer or red card',
     '/rules - Show scoring rules',
     '/leaderboard - Show leaderboard',
@@ -25,6 +26,8 @@ ADMIN_COMMAND_HELP = [
     '/add_tournament - Create or update tournament',
     '/update_fixture - Create or update fixture',
     '/update_score - Update final score and scoring',
+    '/update_score_form - Update final score with team-labelled fields',
+    '/recompute_points - Recompute score and event points for a fixture',
     '/update_event - Create or update fixture event and scoring',
 ]
 
