@@ -5,7 +5,7 @@ from discord.ext import commands
 from commands.admin import register_admin_commands
 from commands.public import register_public_commands
 from config.settings import Settings
-from utils.discord_logs import log_error
+from utils.discord_logs import log_error, push_admin_log
 
 
 PUBLIC_COMMAND_HELP = [
@@ -40,11 +40,20 @@ def create_bot(settings: Settings):
     @bot.event
     async def on_ready():
         if not getattr(bot, 'slash_commands_synced', False):
-            synced_commands = await bot.tree.sync()
-            bot.slash_commands_synced = True
-            print(f'Synced {len(synced_commands)} slash commands')
+            global_commands = await bot.tree.sync()
+            guild_command_counts = []
+            for guild in bot.guilds:
+                bot.tree.copy_global_to(guild=guild)
+                guild_commands = await bot.tree.sync(guild=guild)
+                guild_command_counts.append(f'{guild.name}: {len(guild_commands)}')
 
-        print(f'Logged in as {bot.user}')
+            bot.slash_commands_synced = True
+            sync_messages = [f'Synced {len(global_commands)} global slash commands.']
+            if guild_command_counts:
+                sync_messages.append(f'Synced guild slash commands: {", ".join(guild_command_counts)}.')
+            await push_admin_log(bot, '\n'.join(sync_messages))
+
+        await push_admin_log(bot, f'Logged in as {bot.user}.')
 
     @bot.command(name='help')
     async def help_command(ctx):

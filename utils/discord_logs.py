@@ -1,6 +1,10 @@
+import logging
 import traceback
 
 from config.constants import ADMIN_LOG_CHANNEL_ID, PREDICTION_AWARD_CHANNEL_ID
+
+
+logger = logging.getLogger(__name__)
 
 
 async def push_admin_log(client, message):
@@ -33,7 +37,7 @@ async def _safe_send_channel_message(client, channel_id, message):
     try:
         await _send_channel_message(client, channel_id, message)
     except Exception as error:
-        print(f'Failed to push Discord channel message: {error}')
+        logger.exception('Failed to push Discord channel message to channel %s', channel_id)
 
 
 async def _send_channel_message(client, channel_id, message):
