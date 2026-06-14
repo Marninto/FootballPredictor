@@ -28,6 +28,8 @@ ADMIN_COMMAND_HELP = [
     '/update_score - Update final score and scoring',
     '/update_score_form - Update final score with team-labelled fields',
     '/recompute_points - Recompute score and event points for a fixture',
+    '/revert_score - Revert a fixture score and its points',
+    '/revert_event - Revert fixture events by type and their points',
     '/update_event - Create or update fixture event and scoring',
 ]
 

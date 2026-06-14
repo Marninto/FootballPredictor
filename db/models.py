@@ -2,7 +2,7 @@ from datetime import datetime
 
 from datetime import timedelta
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, JSON, String, UniqueConstraint, exists, func, select, text
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, JSON, String, UniqueConstraint, delete, exists, func, select, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -273,6 +273,12 @@ class Fixture(TimestampMixin, Base):
         fixture.away_score = score_data['away_score']
         fixture.status = score_data['status']
 
+    @classmethod
+    def revert_score(cls, fixture):
+        fixture.home_score = None
+        fixture.away_score = None
+        fixture.status = 'scheduled'
+
 
 class ScorePrediction(TimestampMixin, Base):
     __tablename__ = 'score_predictions'
@@ -341,6 +347,11 @@ class ScorePrediction(TimestampMixin, Base):
             'reason': reason,
             'points': points,
         }
+
+    @classmethod
+    def reset_points(cls, prediction):
+        prediction.points_awarded = 0
+        prediction.scoring_reason_json = None
 
 
 class EventPrediction(TimestampMixin, Base):
@@ -466,6 +477,16 @@ class FixtureEvent(TimestampMixin, Base):
 
         db.flush()
         return fixture_event, created
+
+    @classmethod
+    def delete_by_fixture_and_type(cls, db, fixture_id, event_type):
+        result = db.execute(
+            delete(cls).where(
+                cls.fixture_id == int(fixture_id),
+                cls.event_type == event_type.strip(),
+            )
+        )
+        return result.rowcount or 0
 
 
 class LeaderboardEntry(TimestampMixin, Base):

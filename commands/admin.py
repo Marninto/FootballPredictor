@@ -52,6 +52,19 @@ async def _push_prediction_awards(interaction, fixture_id, prediction_type, awar
     )
 
 
+async def _push_prediction_removals(interaction, fixture_id, prediction_type, removed_users):
+    if not removed_users:
+        return
+    recipients = ', '.join(
+        f'<@{user["discord_user_id"]}> (-{user["points"]})'
+        for user in removed_users
+    )
+    await push_prediction_award_log(
+        interaction.client,
+        f'Fixture #{fixture_id} {prediction_type} prediction points removed from: {recipients}',
+    )
+
+
 def _parse_score(value, team_name):
     try:
         score = int(value)
@@ -325,6 +338,81 @@ def register_admin_commands(bot, settings):
         await interaction.followup.send(
             f'Recomputed points for fixture #{fixture_id}. '
             f'{score_message} {event_message} {leaderboard_message}',
+            ephemeral=True,
+        )
+
+    @bot.tree.command(name='revert_score', description='Revert a fixture score and its awarded points')
+    @app_commands.describe(fixture_id='Fixture id to revert')
+    async def revert_score(interaction: discord.Interaction, fixture_id: int):
+        if not _is_admin(interaction, settings):
+            await _deny_admin(interaction)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        try:
+            revert_result = admin_score_update_service.revert_score_for_fixture(fixture_id)
+            leaderboard_message = admin_score_update_service.refresh_leaderboard_for_fixture(fixture_id)
+        except (ValueError, LookupError) as error:
+            await _send_admin_error(interaction, error)
+            return
+
+        await _push_admin_log(
+            interaction,
+            f'{revert_result["message"]}\n{leaderboard_message}',
+        )
+        await _push_prediction_removals(
+            interaction,
+            fixture_id,
+            'score',
+            revert_result['removed_users'],
+        )
+        await interaction.followup.send(
+            f'{revert_result["message"]} {leaderboard_message}',
+            ephemeral=True,
+        )
+
+    @bot.tree.command(name='revert_event', description='Revert fixture events and their awarded points')
+    @app_commands.describe(
+        fixture_id='Fixture id containing the events',
+        event_type='Actual event type to remove',
+    )
+    async def revert_event(
+        interaction: discord.Interaction,
+        fixture_id: int,
+        event_type: Literal['goal', 'red_card'],
+    ):
+        if not _is_admin(interaction, settings):
+            await _deny_admin(interaction)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        try:
+            revert_result = admin_score_update_service.revert_events_for_fixture(
+                fixture_id,
+                event_type,
+            )
+            event_result = admin_score_update_service.award_event_predictions_for_fixture(fixture_id)
+            leaderboard_message = admin_score_update_service.refresh_leaderboard_for_fixture(fixture_id)
+        except (ValueError, LookupError) as error:
+            await _send_admin_error(interaction, error)
+            return
+
+        await _push_admin_log(
+            interaction,
+            f'{revert_result["message"]}\n'
+            f'{event_result["message"]}\n'
+            f'{leaderboard_message}',
+        )
+        await _push_prediction_removals(
+            interaction,
+            fixture_id,
+            'event',
+            revert_result['removed_users'],
+        )
+        await interaction.followup.send(
+            f'{revert_result["message"]} '
+            f'{event_result["message"]} '
+            f'{leaderboard_message}',
             ephemeral=True,
         )
 

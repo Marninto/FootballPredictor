@@ -1,10 +1,56 @@
 from sqlalchemy import func, select
 
 from db.database import db_transaction
-from db.models import EventPrediction, Fixture, LeaderboardEntry, ScorePrediction
+from db.models import EventPrediction, Fixture, FixtureEvent, LeaderboardEntry, ScorePrediction
 
 
 class AdminScoreUpdateService:
+    @db_transaction
+    def revert_score_for_fixture(self, fixture_id, db):
+        fixture = Fixture.get_by_id(db, fixture_id)
+        if fixture.home_score is None and fixture.away_score is None:
+            raise ValueError(f'Fixture {fixture_id} does not have a score to revert.')
+
+        removed_users = {}
+        predictions = ScorePrediction.find_by_fixture(db, fixture.id)
+        for prediction in predictions:
+            if prediction.points_awarded > 0:
+                self._record_award(removed_users, prediction.user, prediction.points_awarded)
+            ScorePrediction.reset_points(prediction)
+
+        Fixture.revert_score(fixture)
+        db.flush()
+        return {
+            'message': (
+                f'Reverted score for fixture #{fixture.id} and reset '
+                f'{len(predictions)} score predictions.'
+            ),
+            'removed_users': self._awarded_user_items(removed_users),
+        }
+
+    @db_transaction
+    def revert_events_for_fixture(self, fixture_id, event_type, db):
+        fixture = Fixture.get_by_id(db, fixture_id)
+        prediction_event_type = self._prediction_event_type(event_type)
+        removed_users = {}
+        for prediction in EventPrediction.find_by_fixture(db, fixture.id):
+            if prediction.event_type == prediction_event_type and prediction.points_awarded > 0:
+                self._record_award(removed_users, prediction.user, prediction.points_awarded)
+
+        deleted_count = FixtureEvent.delete_by_fixture_and_type(db, fixture.id, event_type)
+        if deleted_count == 0:
+            raise ValueError(
+                f'Fixture {fixture_id} does not have any {event_type} events to revert.'
+            )
+
+        db.flush()
+        return {
+            'message': (
+                f'Reverted {deleted_count} {event_type} event(s) for fixture #{fixture.id}.'
+            ),
+            'removed_users': self._awarded_user_items(removed_users),
+        }
+
     @db_transaction
     def award_score_predictions_for_fixture(self, fixture_id, db):
         fixture = Fixture.get_by_id(db, fixture_id)
