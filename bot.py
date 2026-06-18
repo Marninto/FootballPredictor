@@ -70,7 +70,8 @@ def create_bot(settings: Settings):
             await push_channel_log(
                 bot,
                 settings.bot_announcement_channel_id,
-                f'Bot update {APP_VERSION}\n' + '\n'.join(f'- {note}' for note in release_notes),
+                '@everyone Bot updates\n'
+                + '\n'.join(f'- {note}' for note in release_notes),
             )
 
     @bot.command(name='help')

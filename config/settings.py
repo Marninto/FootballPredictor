@@ -2,6 +2,9 @@ import os
 from dataclasses import dataclass
 
 
+DEFAULT_BOT_ANNOUNCEMENT_CHANNEL_ID = 1517252306264002591
+
+
 @dataclass(frozen=True)
 class Settings:
     application_id: int
@@ -38,12 +41,16 @@ def get_database_url():
 
 
 def load_settings():
+    bot_announcement_channel_id = os.getenv(
+        'BOT_ANNOUNCEMENT_CHANNEL_ID',
+        str(DEFAULT_BOT_ANNOUNCEMENT_CHANNEL_ID),
+    )
     return Settings(
         application_id=int(_required_env('APPLICATION_ID')),
         public_key=_required_env('PUBLIC_KEY'),
         admin_user_ids=_parse_int_list(_required_env('ADMIN_USER_IDS')),
         bot_token=_required_env('BOT_TOKEN'),
         database_url=get_database_url(),
-        bot_announcement_channel_id=int(_required_env('BOT_ANNOUNCEMENT_CHANNEL_ID')),
+        bot_announcement_channel_id=int(bot_announcement_channel_id),
         command_prefix=os.getenv('COMMAND_PREFIX', '!'),
     )
