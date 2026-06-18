@@ -5,9 +5,28 @@ from discord import app_commands
 
 from config.constants import ADMIN_LOG_CHANNEL_URL
 from services.announcement_service import AnnouncementService
+from services.announcement_scheduler import run_announcement_now
 from services.admin_score_update_service import AdminScoreUpdateService
 from services.tournament_service import TournamentService
-from utils.discord_logs import log_error, push_admin_log, push_prediction_award_log
+from release import APP_VERSION, RELEASE_NOTES
+from utils.discord_logs import log_error, push_admin_log, push_channel_log, push_prediction_award_log
+
+
+ADMIN_COMMAND_NAMES = {
+    'upsert_rules',
+    'upsert_announcement',
+    'announcement_status',
+    'run_announcement_now',
+    'announce_release_notes',
+    'add_tournament',
+    'update_fixture',
+    'update_score',
+    'update_score_form',
+    'recompute_points',
+    'revert_score',
+    'revert_event',
+    'update_event',
+}
 
 
 def _is_admin(interaction, settings):
@@ -38,6 +57,10 @@ async def _send_admin_error(interaction, error):
 
 async def _push_admin_log(interaction, message):
     await push_admin_log(interaction.client, f'{message}\nTriggered by: {interaction.user.mention}')
+
+
+def _format_datetime(value):
+    return 'N/A' if value is None else value.strftime('%Y-%m-%d %H:%M UTC')
 
 
 async def _push_prediction_awards(interaction, fixture_id, prediction_type, awarded_users):
@@ -212,6 +235,64 @@ def register_admin_commands(bot, settings):
 
         await interaction.response.send_message(message, ephemeral=True)
         await _push_admin_log(interaction, message)
+
+    @bot.tree.command(name='announcement_status', description='Show scheduled announcement status')
+    async def announcement_status(interaction: discord.Interaction):
+        if not _is_admin(interaction, settings):
+            await _deny_admin(interaction)
+            return
+
+        rows = announcement_service.status_rows()
+        if not rows:
+            await interaction.response.send_message('No announcements configured.', ephemeral=True)
+            return
+
+        lines = []
+        for row in rows:
+            lines.append(
+                f'{row["announcement_type"]}\n'
+                f'Gap: {row["trigger_gap"]} minutes\n'
+                f'Last triggered: {_format_datetime(row["last_triggered"])}\n'
+                f'Next trigger: {_format_datetime(row["next_trigger_at"])}\n'
+                f'Due now: {str(row["due"]).lower()}'
+            )
+        await interaction.response.send_message('\n\n'.join(lines), ephemeral=True)
+
+    @bot.tree.command(name='run_announcement_now', description='Run a scheduled announcement immediately')
+    @app_commands.describe(announcement_type='Announcement type')
+    async def run_announcement_now_command(
+        interaction: discord.Interaction,
+        announcement_type: Literal['fixture_announcement_2_days'],
+    ):
+        if not _is_admin(interaction, settings):
+            await _deny_admin(interaction)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        try:
+            message = await run_announcement_now(interaction.client, settings, announcement_type)
+        except (ValueError, LookupError) as error:
+            await _send_admin_error(interaction, error)
+            return
+
+        await _push_admin_log(interaction, message)
+        await interaction.followup.send(message, ephemeral=True)
+
+    @bot.tree.command(name='announce_release_notes', description='Post current release notes')
+    async def announce_release_notes(interaction: discord.Interaction):
+        if not _is_admin(interaction, settings):
+            await _deny_admin(interaction)
+            return
+
+        release_notes = RELEASE_NOTES.get(APP_VERSION)
+        if not release_notes:
+            await interaction.response.send_message('No release notes found for current version.', ephemeral=True)
+            return
+
+        message = '@everyone Bot updates\n' + '\n'.join(f'- {note}' for note in release_notes)
+        await push_channel_log(interaction.client, settings.bot_announcement_channel_id, message)
+        await interaction.response.send_message('Posted release notes.', ephemeral=True)
+        await _push_admin_log(interaction, 'Posted release notes.')
 
     @bot.tree.command(name='add_tournament', description='Create tournament')
     @app_commands.describe(
@@ -491,3 +572,8 @@ def register_admin_commands(bot, settings):
         leaderboard_message = admin_score_update_service.refresh_leaderboard_for_fixture(fixture_id)
         await _push_admin_log(interaction, leaderboard_message)
         await interaction.followup.send(f'{event_message} {score_message} {leaderboard_message}', ephemeral=True)
+
+    admin_permissions = discord.Permissions(administrator=True)
+    for command in bot.tree.get_commands():
+        if command.name in ADMIN_COMMAND_NAMES:
+            command.default_permissions = admin_permissions

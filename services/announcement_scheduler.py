@@ -33,11 +33,21 @@ async def run_due_announcements(bot, settings):
     service = AnnouncementService()
     for announcement in service.due_announcements():
         if announcement['announcement_type'] == FIXTURE_ANNOUNCEMENT_2_DAYS:
-            await _send_fixture_announcements(bot, settings, service)
+            await send_fixture_announcements(bot, settings, service)
             service.mark_triggered(announcement['id'])
 
 
-async def _send_fixture_announcements(bot, settings, service):
+async def run_announcement_now(bot, settings, announcement_type):
+    service = AnnouncementService()
+    announcement = service.get_announcement_by_type(announcement_type)
+    if announcement['announcement_type'] == FIXTURE_ANNOUNCEMENT_2_DAYS:
+        await send_fixture_announcements(bot, settings, service)
+        service.mark_triggered(announcement['id'])
+        return f'Ran announcement {announcement_type}.'
+    raise ValueError(f'Unsupported announcement type: {announcement_type}.')
+
+
+async def send_fixture_announcements(bot, settings, service):
     groups = service.upcoming_fixture_groups()
     channel = bot.get_channel(settings.bot_announcement_channel_id)
     if channel is None:

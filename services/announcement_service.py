@@ -45,6 +45,34 @@ class AnnouncementService:
         return due
 
     @db_transaction
+    def status_rows(self, db):
+        now = utc_now()
+        rows = []
+        for announcement in db.scalars(Announcement.all_statement()).all():
+            next_trigger_at = self._next_trigger_at(announcement, now)
+            rows.append(
+                {
+                    'id': announcement.id,
+                    'announcement_type': announcement.announcement_type,
+                    'trigger_gap': announcement.trigger_gap,
+                    'last_triggered': announcement.last_triggered,
+                    'next_trigger_at': next_trigger_at,
+                    'due': self._is_due(announcement, now),
+                }
+            )
+        return rows
+
+    @db_transaction
+    def get_announcement_by_type(self, announcement_type, db):
+        announcement = Announcement.find_by_type(db, announcement_type)
+        if announcement is None:
+            raise LookupError(f'Announcement {announcement_type} was not found.')
+        return {
+            'id': announcement.id,
+            'announcement_type': announcement.announcement_type,
+        }
+
+    @db_transaction
     def mark_triggered(self, announcement_id, db):
         announcement = db.get(Announcement, int(announcement_id))
         if announcement is None:
@@ -84,6 +112,14 @@ class AnnouncementService:
         if last_triggered.tzinfo is None:
             last_triggered = last_triggered.replace(tzinfo=now.tzinfo)
         return now - last_triggered >= timedelta(minutes=announcement.trigger_gap)
+
+    def _next_trigger_at(self, announcement, now):
+        if announcement.last_triggered is None:
+            return now
+        last_triggered = announcement.last_triggered
+        if last_triggered.tzinfo is None:
+            last_triggered = last_triggered.replace(tzinfo=now.tzinfo)
+        return last_triggered + timedelta(minutes=announcement.trigger_gap)
 
     def _prediction_users_for_tournament(self, db, tournament_id):
         score_user_ids = ScorePrediction.find_user_ids_for_tournament(db, tournament_id)

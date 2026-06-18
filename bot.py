@@ -5,9 +5,8 @@ from discord.ext import commands
 from commands.admin import register_admin_commands
 from commands.public import register_public_commands
 from config.settings import Settings
-from release import APP_VERSION, RELEASE_NOTES
 from services.announcement_scheduler import start_announcement_scheduler
-from utils.discord_logs import log_error, push_admin_log, push_channel_log
+from utils.discord_logs import log_error, push_admin_log
 
 
 PUBLIC_COMMAND_HELP = [
@@ -27,6 +26,9 @@ ADMIN_COMMAND_HELP = [
     '/upsert_rules - Create or update scoring rules',
     '/add_tournament - Create or update tournament',
     '/upsert_announcement - Create or update scheduled announcements',
+    '/announcement_status - Show scheduler status',
+    '/run_announcement_now - Run a scheduled announcement now',
+    '/announce_release_notes - Post current release notes',
     '/update_fixture - Create or update fixture',
     '/update_score - Update final score and scoring',
     '/update_score_form - Update final score with team-labelled fields',
@@ -64,16 +66,6 @@ def create_bot(settings: Settings):
             start_announcement_scheduler(bot, settings)
 
         await push_admin_log(bot, f'Logged in as {bot.user}.')
-        release_notes = RELEASE_NOTES.get(APP_VERSION)
-        if release_notes and not getattr(bot, 'release_notes_announced', False):
-            bot.release_notes_announced = True
-            await push_channel_log(
-                bot,
-                settings.bot_announcement_channel_id,
-                '@everyone Bot updates\n'
-                + '\n'.join(f'- {note}' for note in release_notes),
-            )
-
     @bot.command(name='help')
     async def help_command(ctx):
         command_lines = list(PUBLIC_COMMAND_HELP)
