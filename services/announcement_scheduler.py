@@ -88,7 +88,7 @@ def _mention_chunks(users, size=1800):
     chunks = []
     current = ''
     for user in users:
-        mention = f'<@{user.discord_user_id}>'
+        mention = f'<@{user["discord_user_id"]}>'
         next_value = mention if not current else f'{current} {mention}'
         if len(next_value) > size:
             chunks.append(current)

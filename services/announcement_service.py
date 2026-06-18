@@ -127,4 +127,10 @@ class AnnouncementService:
         user_ids = sorted(set(score_user_ids) | set(event_user_ids))
         if not user_ids:
             return []
-        return db.scalars(User.users_by_ids_statement(user_ids)).all()
+        return [
+            {
+                'discord_user_id': user.discord_user_id,
+                'display_name': user.discord_display_name,
+            }
+            for user in db.scalars(User.users_by_ids_statement(user_ids)).all()
+        ]
