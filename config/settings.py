@@ -9,6 +9,7 @@ class Settings:
     admin_user_ids: list[int]
     bot_token: str
     database_url: str
+    bot_announcement_channel_id: int
     command_prefix: str = '!'
 
 
@@ -43,5 +44,6 @@ def load_settings():
         admin_user_ids=_parse_int_list(_required_env('ADMIN_USER_IDS')),
         bot_token=_required_env('BOT_TOKEN'),
         database_url=get_database_url(),
+        bot_announcement_channel_id=int(_required_env('BOT_ANNOUNCEMENT_CHANNEL_ID')),
         command_prefix=os.getenv('COMMAND_PREFIX', '!'),
     )

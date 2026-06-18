@@ -1,5 +1,4 @@
 import re
-from datetime import timedelta
 
 from utils.time import utc_now
 
@@ -24,6 +23,5 @@ def validate_fixture_open_for_prediction(fixture):
     if fixture.status != 'scheduled':
         raise ValueError('Predictions are closed for this fixture.')
 
-    cutoff_at = fixture.kickoff_at - timedelta(minutes=30)
-    if utc_now() >= cutoff_at:
-        raise ValueError('Predictions close 30 minutes before kickoff.')
+    if utc_now() >= fixture.kickoff_at:
+        raise ValueError('Predictions close at kickoff.')

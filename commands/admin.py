@@ -4,6 +4,7 @@ import discord
 from discord import app_commands
 
 from config.constants import ADMIN_LOG_CHANNEL_URL
+from services.announcement_service import AnnouncementService
 from services.admin_score_update_service import AdminScoreUpdateService
 from services.tournament_service import TournamentService
 from utils.discord_logs import log_error, push_admin_log, push_prediction_award_log
@@ -152,6 +153,7 @@ class FinalScoreModal(discord.ui.Modal):
 
 
 def register_admin_commands(bot, settings):
+    announcement_service = AnnouncementService()
     admin_score_update_service = AdminScoreUpdateService()
     tournament_service = TournamentService()
 
@@ -182,6 +184,34 @@ def register_admin_commands(bot, settings):
 
         await interaction.response.send_message(message, ephemeral=True)
         await _push_admin_log(interaction, f'{message}\nLog channel: {ADMIN_LOG_CHANNEL_URL}')
+
+    @bot.tree.command(name='upsert_announcement', description='Create or update a scheduled announcement')
+    @app_commands.describe(
+        announcement_type='Announcement type',
+        trigger_gap='Trigger gap in minutes',
+    )
+    async def upsert_announcement(
+        interaction: discord.Interaction,
+        announcement_type: Literal['fixture_announcement_2_days'],
+        trigger_gap: app_commands.Range[int, 1],
+    ):
+        if not _is_admin(interaction, settings):
+            await _deny_admin(interaction)
+            return
+
+        try:
+            message = announcement_service.upsert_announcement(
+                {
+                    'announcement_type': announcement_type,
+                    'trigger_gap': trigger_gap,
+                }
+            )
+        except ValueError as error:
+            await _send_admin_error(interaction, error)
+            return
+
+        await interaction.response.send_message(message, ephemeral=True)
+        await _push_admin_log(interaction, message)
 
     @bot.tree.command(name='add_tournament', description='Create tournament')
     @app_commands.describe(

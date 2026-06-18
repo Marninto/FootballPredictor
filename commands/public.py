@@ -98,6 +98,11 @@ def _fixtures_embed(data):
             else 'X-X'
         )
         predicted_goalscorers = ', '.join(item['predicted_goalscorers']) or 'N/A'
+        points_line = (
+            f'\nPoints earned: {item["points_earned"]}'
+            if item['points_earned'] is not None
+            else ''
+        )
         embed.add_field(
             name=f'#{item["id"]} | {item["kickoff_at"].strftime("%Y-%m-%d %H:%M UTC")}',
             value=(
@@ -105,6 +110,7 @@ def _fixtures_embed(data):
                 f'Predicted score: {predicted_score}\n'
                 f'Predicted Goalscorer: {predicted_goalscorers}\n'
                 f'Predicted: {str(item["predicted"]).lower()}'
+                f'{points_line}'
             ),
             inline=False,
         )
@@ -356,7 +362,7 @@ def register_public_commands(bot):
             page=data['page'].page,
         )
         view._set_button_states(data['page'])
-        await interaction.response.send_message(embed=_fixtures_embed(data), view=view)
+        await interaction.response.send_message(embed=_fixtures_embed(data), view=view, ephemeral=True)
 
     @bot.tree.command(name='predict', description='Predict fixture score')
     @app_commands.describe(

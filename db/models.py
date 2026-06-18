@@ -1,7 +1,5 @@
 from datetime import datetime
 
-from datetime import timedelta
-
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, Integer, JSON, String, UniqueConstraint, delete, exists, func, select, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -53,6 +51,10 @@ class User(TimestampMixin, Base):
     @classmethod
     def set_prediction_visibility(cls, user, visibility):
         user.prediction_visibility = visibility
+
+    @classmethod
+    def users_by_ids_statement(cls, user_ids):
+        return select(cls).where(cls.id.in_([int(user_id) for user_id in user_ids])).order_by(cls.id)
 
 
 class Tournament(TimestampMixin, Base):
@@ -164,6 +166,46 @@ class Ruleset(TimestampMixin, Base):
         return tournament.ruleset
 
 
+class Announcement(TimestampMixin, Base):
+    __tablename__ = 'announcements'
+    __table_args__ = (
+        UniqueConstraint('announcement_type', name='uq_announcements_announcement_type'),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    announcement_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    last_triggered: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    trigger_gap: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    @classmethod
+    def all_statement(cls):
+        return select(cls).order_by(cls.announcement_type)
+
+    @classmethod
+    def find_by_type(cls, db, announcement_type):
+        return db.scalar(select(cls).where(cls.announcement_type == announcement_type.strip()))
+
+    @classmethod
+    def upsert_from_dict(cls, db, data):
+        announcement = cls.find_by_type(db, data['announcement_type'])
+        created = announcement is None
+        if created:
+            announcement = cls(
+                announcement_type=data['announcement_type'].strip(),
+                trigger_gap=int(data['trigger_gap']),
+            )
+            db.add(announcement)
+        else:
+            announcement.trigger_gap = int(data['trigger_gap'])
+
+        db.flush()
+        return announcement, created
+
+    @classmethod
+    def mark_triggered(cls, announcement, triggered_at):
+        announcement.last_triggered = triggered_at
+
+
 class Fixture(TimestampMixin, Base):
     __tablename__ = 'fixtures'
     __table_args__ = (
@@ -225,13 +267,26 @@ class Fixture(TimestampMixin, Base):
         elif fixture_filter == 'open':
             statement = statement.where(
                 cls.status == 'scheduled',
-                cls.kickoff_at > utc_now() + timedelta(minutes=30),
+                cls.kickoff_at > utc_now(),
                 ~exists().where(
                     ScorePrediction.fixture_id == cls.id,
                     ScorePrediction.user_id == int(user_id),
                 ),
             )
         return statement
+
+    @classmethod
+    def upcoming_statement(cls, start_at, end_at):
+        return (
+            select(cls)
+            .join(Tournament)
+            .where(
+                cls.status == 'scheduled',
+                cls.kickoff_at >= start_at,
+                cls.kickoff_at <= end_at,
+            )
+            .order_by(Tournament.name, cls.kickoff_at, cls.id)
+        )
 
     @classmethod
     def find_by_match_key(cls, db, data):
@@ -341,6 +396,15 @@ class ScorePrediction(TimestampMixin, Base):
         )
 
     @classmethod
+    def find_user_ids_for_tournament(cls, db, tournament_id):
+        return [
+            row[0]
+            for row in db.execute(
+                select(func.distinct(cls.user_id)).join(Fixture).where(Fixture.tournament_id == tournament_id)
+            ).all()
+        ]
+
+    @classmethod
     def award_points(cls, prediction, points, reason):
         prediction.points_awarded = points
         prediction.scoring_reason_json = {
@@ -423,6 +487,15 @@ class EventPrediction(TimestampMixin, Base):
                 select(func.count(func.distinct(cls.user_id))).join(Fixture).where(Fixture.tournament_id == tournament_id)
             )
         )
+
+    @classmethod
+    def find_user_ids_for_tournament(cls, db, tournament_id):
+        return [
+            row[0]
+            for row in db.execute(
+                select(func.distinct(cls.user_id)).join(Fixture).where(Fixture.tournament_id == tournament_id)
+            ).all()
+        ]
 
     @classmethod
     def award_points(cls, prediction, points, reason):

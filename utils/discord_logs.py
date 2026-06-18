@@ -15,6 +15,10 @@ async def push_prediction_award_log(client, message):
     await _safe_send_channel_message(client, PREDICTION_AWARD_CHANNEL_ID, message)
 
 
+async def push_channel_log(client, channel_id, message):
+    await _safe_send_channel_message(client, channel_id, message)
+
+
 async def safe_push_admin_log(client, message):
     await _safe_send_channel_message(client, ADMIN_LOG_CHANNEL_ID, message)
 

@@ -156,6 +156,9 @@ class TournamentService:
         goalscorer_predictions = [
             event for event in event_predictions if event.event_type == 'goalscorer'
         ]
+        fixture_updated = fixture.home_score is not None and fixture.away_score is not None
+        score_points = prediction.points_awarded if prediction else 0
+        event_points = sum(event.points_awarded for event in event_predictions)
         return {
             'id': fixture.id,
             'kickoff_at': fixture.kickoff_at,
@@ -167,4 +170,5 @@ class TournamentService:
             'away_score': fixture.away_score,
             'predicted_goalscorers': [event.player_name for event in goalscorer_predictions],
             'predicted': prediction is not None or bool(event_predictions),
+            'points_earned': score_points + event_points if fixture_updated else None,
         }
