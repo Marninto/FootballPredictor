@@ -36,17 +36,20 @@ class PredictionService:
 
         tournament = Tournament.get_by_code(db, tournament_code)
         user, _ = User.get_or_create_from_discord(db, discord_user.id, discord_user.display_name)
+        start_kickoff_at = None
 
         if start_fixture_id is not None:
             start_fixture = Fixture.get_by_id(db, start_fixture_id)
             if start_fixture.tournament_id != tournament.id:
                 raise ValueError(f'Fixture {start_fixture_id} is not in tournament {tournament.code}.')
             validate_fixture_open_for_prediction(start_fixture)
+            start_kickoff_at = start_fixture.kickoff_at
 
         fixtures = db.scalars(
             Fixture.open_statement(
                 tournament.id,
                 start_fixture_id=start_fixture_id,
+                start_kickoff_at=start_kickoff_at,
             ).limit(count)
         ).all()
         fixture_details = []

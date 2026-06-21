@@ -291,14 +291,23 @@ class Fixture(TimestampMixin, Base):
         return statement.order_by(cls.kickoff_at, cls.id)
 
     @classmethod
-    def open_statement(cls, tournament_id, start_fixture_id=None):
+    def open_statement(cls, tournament_id, start_fixture_id=None, start_kickoff_at=None):
         statement = select(cls).where(
             cls.tournament_id == int(tournament_id),
             cls.status == 'scheduled',
             cls.kickoff_at > utc_now(),
         )
         if start_fixture_id is not None:
-            statement = statement.where(cls.id >= int(start_fixture_id))
+            if start_kickoff_at is None:
+                statement = statement.where(cls.id >= int(start_fixture_id))
+            else:
+                statement = statement.where(
+                    (cls.kickoff_at > start_kickoff_at)
+                    | (
+                        (cls.kickoff_at == start_kickoff_at)
+                        & (cls.id >= int(start_fixture_id))
+                    )
+                )
         return statement.order_by(cls.kickoff_at, cls.id)
 
     @classmethod
