@@ -1,5 +1,5 @@
 from db.database import db_transaction
-from db.models import EventPrediction, Fixture, ScorePrediction, User
+from db.models import EventPrediction, Fixture, ScorePrediction, Tournament, User
 from utils.validation import validate_fixture_open_for_prediction, validate_player_name
 
 
@@ -13,6 +13,46 @@ class PredictionService:
             'home_team': fixture.home_team,
             'away_team': fixture.away_team,
         }
+
+    @db_transaction
+    def get_predict_form_fixtures(
+        self,
+        discord_user,
+        tournament_code,
+        count,
+        start_fixture_id=None,
+        db=None,
+    ):
+        count = int(count)
+        if count < 1 or count > 5:
+            raise ValueError('count must be between 1 and 5.')
+
+        tournament = Tournament.get_by_code(db, tournament_code)
+        user, _ = User.get_or_create_from_discord(db, discord_user.id, discord_user.display_name)
+
+        if start_fixture_id is not None:
+            start_fixture = Fixture.get_by_id(db, start_fixture_id)
+            if start_fixture.tournament_id != tournament.id:
+                raise ValueError(f'Fixture {start_fixture_id} is not in tournament {tournament.code}.')
+            validate_fixture_open_for_prediction(start_fixture)
+            if ScorePrediction.find_by_user_and_fixture(db, user.id, start_fixture.id) is not None:
+                raise ValueError(f'You have already predicted fixture {start_fixture_id}.')
+
+        fixtures = db.scalars(
+            Fixture.open_unpredicted_statement(
+                tournament.id,
+                user.id,
+                start_fixture_id=start_fixture_id,
+            ).limit(count)
+        ).all()
+        return [
+            {
+                'id': fixture.id,
+                'home_team': fixture.home_team,
+                'away_team': fixture.away_team,
+            }
+            for fixture in fixtures
+        ]
 
     @db_transaction
     def predict_score(self, discord_user, fixture_id, home_score, away_score, db=None):

@@ -1,4 +1,4 @@
-APP_VERSION = '0.0.3'
+APP_VERSION = '0.0.4'
 
 RELEASE_NOTES = {
     '0.0.1': ['Initial tracked release.'],
@@ -13,5 +13,9 @@ RELEASE_NOTES = {
         'Moved release note announcements to an admin command.',
         'Added scheduler status command for announcements.',
         'Added manual announcement run command for validation.',
+    ],
+    '0.0.4': [
+        'Added guided prediction form for up to 5 open fixtures. try predict_form',
+        'Improved help command with ordered sections and usage examples.',
     ],
 }

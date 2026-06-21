@@ -178,6 +178,123 @@ class ScorePredictionModal(discord.ui.Modal):
         await interaction.response.send_message(message, ephemeral=True)
 
 
+class GuidedPredictionModal(discord.ui.Modal):
+    def __init__(self, prediction_service, owner_id, fixtures, index=0):
+        fixture = fixtures[index]
+        super().__init__(title=f'Predict fixture #{fixture["id"]}')
+        self.prediction_service = prediction_service
+        self.owner_id = owner_id
+        self.fixtures = fixtures
+        self.index = index
+        self.fixture = fixture
+        self.home_score = discord.ui.TextInput(
+            label=f'{fixture["home_team"]} score'[:45],
+            placeholder='0',
+            min_length=1,
+            max_length=2,
+        )
+        self.away_score = discord.ui.TextInput(
+            label=f'{fixture["away_team"]} score'[:45],
+            placeholder='0',
+            min_length=1,
+            max_length=2,
+        )
+        self.goalscorer = discord.ui.TextInput(
+            label='Goalscorer',
+            placeholder='Optional',
+            required=False,
+            max_length=255,
+        )
+        self.add_item(self.home_score)
+        self.add_item(self.away_score)
+        self.add_item(self.goalscorer)
+
+    async def on_submit(self, interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message('This prediction form belongs to another user.', ephemeral=True)
+            return
+
+        try:
+            home_score = _parse_score(self.home_score.value, self.fixture['home_team'])
+            away_score = _parse_score(self.away_score.value, self.fixture['away_team'])
+            messages = [
+                self.prediction_service.predict_score(
+                    interaction.user,
+                    self.fixture['id'],
+                    home_score,
+                    away_score,
+                )
+            ]
+            goalscorer = self.goalscorer.value.strip()
+            if goalscorer:
+                messages.append(
+                    self.prediction_service.predict_event(
+                        interaction.user,
+                        self.fixture['id'],
+                        'goalscorer',
+                        goalscorer,
+                    )
+                )
+        except (ValueError, LookupError) as error:
+            await _send_public_error(interaction, error)
+            return
+
+        next_index = self.index + 1
+        if next_index < len(self.fixtures):
+            view = GuidedPredictionNextView(
+                self.prediction_service,
+                self.owner_id,
+                self.fixtures,
+                next_index,
+            )
+            await interaction.response.send_message(
+                (
+                    '\n'.join(messages)
+                    + f'\nSaved fixture {self.index + 1} of {len(self.fixtures)}.'
+                    + f'\nClick the button to open fixture {next_index + 1} of {len(self.fixtures)}.'
+                ),
+                view=view,
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_message(
+            (
+                '\n'.join(messages)
+                + f'\nSaved fixture {self.index + 1} of {len(self.fixtures)}.'
+                + '\nPrediction batch complete.'
+            ),
+            ephemeral=True,
+        )
+
+
+class GuidedPredictionNextView(discord.ui.View):
+    def __init__(self, prediction_service, owner_id, fixtures, index):
+        super().__init__(timeout=300)
+        self.prediction_service = prediction_service
+        self.owner_id = owner_id
+        self.fixtures = fixtures
+        self.index = index
+        self.next_fixture.label = 'Open prediction form' if index == 0 else 'Open next fixture'
+
+    async def interaction_check(self, interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message('Only the command user can use this button.', ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label='Next fixture', style=discord.ButtonStyle.primary)
+    async def next_fixture(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(
+            GuidedPredictionModal(
+                self.prediction_service,
+                self.owner_id,
+                self.fixtures,
+                self.index,
+            )
+        )
+
+
 class TournamentPaginationView(discord.ui.View):
     def __init__(self, tournament_service, owner_id, page=1):
         super().__init__(timeout=120)
@@ -379,16 +496,47 @@ def register_public_commands(bot):
 
         await interaction.response.send_message(message, ephemeral=True)
 
-    @bot.tree.command(name='predict_score_form', description='Predict a score using team-labelled fields')
-    @app_commands.describe(fixture_id='Fixture id to predict')
-    async def predict_score_form(interaction: discord.Interaction, fixture_id: int):
+    @bot.tree.command(name='predict_form', description='Predict multiple open fixtures one by one')
+    @app_commands.describe(
+        count='Number of fixtures to predict',
+        tournament_code='Tournament code',
+        start_fixture_id='Optional fixture id to start from',
+    )
+    async def predict_form(
+        interaction: discord.Interaction,
+        count: app_commands.Range[int, 1, 5],
+        tournament_code: str,
+        start_fixture_id: int | None = None,
+    ):
         try:
-            fixture = prediction_service.get_predictable_fixture_details(fixture_id)
+            fixtures = prediction_service.get_predict_form_fixtures(
+                interaction.user,
+                tournament_code,
+                count,
+                start_fixture_id=start_fixture_id,
+            )
         except (ValueError, LookupError) as error:
             await _send_public_error(interaction, error)
             return
+
+        if not fixtures:
+            await interaction.response.send_message('No open fixtures available for prediction.', ephemeral=True)
+            return
+
+        if len(fixtures) < count:
+            await interaction.response.send_message(
+                (
+                    f'Only {len(fixtures)} open prediction option(s) are available. '
+                    f'Click the button to open fixture 1 of {len(fixtures)}. '
+                    'Each submitted form is saved immediately.'
+                ),
+                view=GuidedPredictionNextView(prediction_service, interaction.user.id, fixtures, 0),
+                ephemeral=True,
+            )
+            return
+
         await interaction.response.send_modal(
-            ScorePredictionModal(fixture, prediction_service, interaction.user.id)
+            GuidedPredictionModal(prediction_service, interaction.user.id, fixtures, 0)
         )
 
     @bot.tree.command(name='predict_event', description='Predict goalscorer or red card')
