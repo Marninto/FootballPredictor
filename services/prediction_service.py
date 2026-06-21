@@ -42,24 +42,41 @@ class PredictionService:
             if start_fixture.tournament_id != tournament.id:
                 raise ValueError(f'Fixture {start_fixture_id} is not in tournament {tournament.code}.')
             validate_fixture_open_for_prediction(start_fixture)
-            if ScorePrediction.find_by_user_and_fixture(db, user.id, start_fixture.id) is not None:
-                raise ValueError(f'You have already predicted fixture {start_fixture_id}.')
 
         fixtures = db.scalars(
-            Fixture.open_unpredicted_statement(
+            Fixture.open_statement(
                 tournament.id,
-                user.id,
                 start_fixture_id=start_fixture_id,
             ).limit(count)
         ).all()
-        return [
-            {
-                'id': fixture.id,
-                'home_team': fixture.home_team,
-                'away_team': fixture.away_team,
-            }
-            for fixture in fixtures
-        ]
+        fixture_details = []
+        for fixture in fixtures:
+            score_prediction = ScorePrediction.find_by_user_and_fixture(db, user.id, fixture.id)
+            goalscorer_prediction = EventPrediction.find_by_prediction_key(
+                db,
+                {
+                    'user_id': user.id,
+                    'fixture_id': fixture.id,
+                    'event_type': 'goalscorer',
+                },
+            )
+            fixture_details.append(
+                {
+                    'id': fixture.id,
+                    'home_team': fixture.home_team,
+                    'away_team': fixture.away_team,
+                    'predicted_home_score': (
+                        score_prediction.predicted_home_score if score_prediction is not None else None
+                    ),
+                    'predicted_away_score': (
+                        score_prediction.predicted_away_score if score_prediction is not None else None
+                    ),
+                    'predicted_goalscorer': (
+                        goalscorer_prediction.player_name if goalscorer_prediction is not None else None
+                    ),
+                }
+            )
+        return fixture_details
 
     @db_transaction
     def predict_score(self, discord_user, fixture_id, home_score, away_score, db=None):

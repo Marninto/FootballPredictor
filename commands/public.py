@@ -138,6 +138,10 @@ def _parse_score(value, team_name):
     return score
 
 
+def _text_input_default(value):
+    return None if value is None else str(value)
+
+
 class ScorePredictionModal(discord.ui.Modal):
     def __init__(self, fixture, prediction_service, owner_id):
         super().__init__(title=f'Predict fixture #{fixture["id"]}')
@@ -147,12 +151,14 @@ class ScorePredictionModal(discord.ui.Modal):
         self.home_score = discord.ui.TextInput(
             label=f'{fixture["home_team"]} score'[:45],
             placeholder='0',
+            default=_text_input_default(fixture.get('predicted_home_score')),
             min_length=1,
             max_length=2,
         )
         self.away_score = discord.ui.TextInput(
             label=f'{fixture["away_team"]} score'[:45],
             placeholder='0',
+            default=_text_input_default(fixture.get('predicted_away_score')),
             min_length=1,
             max_length=2,
         )
@@ -193,18 +199,21 @@ class GuidedPredictionModal(discord.ui.Modal):
         self.home_score = discord.ui.TextInput(
             label=f'{fixture["home_team"]} score'[:45],
             placeholder='0',
+            default=_text_input_default(fixture.get('predicted_home_score')),
             min_length=1,
             max_length=2,
         )
         self.away_score = discord.ui.TextInput(
             label=f'{fixture["away_team"]} score'[:45],
             placeholder='0',
+            default=_text_input_default(fixture.get('predicted_away_score')),
             min_length=1,
             max_length=2,
         )
         self.goalscorer = discord.ui.TextInput(
             label='Goalscorer',
             placeholder='Optional',
+            default=fixture.get('predicted_goalscorer'),
             required=False,
             max_length=255,
         )
@@ -536,7 +545,7 @@ def register_public_commands(bot):
         if len(fixtures) < count:
             await interaction.response.send_message(
                 (
-                    f'Only {len(fixtures)} open prediction option(s) are available. '
+                    f'Only {len(fixtures)} open fixture(s) are available. '
                     f'Click the button to open fixture 1 of {len(fixtures)}. '
                     'Each submitted form is saved immediately.'
                 ),
