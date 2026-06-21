@@ -175,7 +175,10 @@ class ScorePredictionModal(discord.ui.Modal):
         except (ValueError, LookupError) as error:
             await _send_public_error(interaction, error)
             return
-        await interaction.response.send_message(message, ephemeral=True)
+        await interaction.response.send_message(
+            message,
+            ephemeral=self.prediction_service.prediction_response_ephemeral(interaction.user),
+        )
 
 
 class GuidedPredictionModal(discord.ui.Modal):
@@ -217,28 +220,32 @@ class GuidedPredictionModal(discord.ui.Modal):
         try:
             home_score = _parse_score(self.home_score.value, self.fixture['home_team'])
             away_score = _parse_score(self.away_score.value, self.fixture['away_team'])
-            messages = [
-                self.prediction_service.predict_score(
-                    interaction.user,
-                    self.fixture['id'],
-                    home_score,
-                    away_score,
+            self.prediction_service.predict_score(
+                interaction.user,
+                self.fixture['id'],
+                home_score,
+                away_score,
+            )
+            acknowledgement_lines = [
+                (
+                    f'Fixture #{self.fixture["id"]} predicted: '
+                    f'{self.fixture["home_team"]} {home_score}-{away_score} {self.fixture["away_team"]}.'
                 )
             ]
             goalscorer = self.goalscorer.value.strip()
             if goalscorer:
-                messages.append(
-                    self.prediction_service.predict_event(
-                        interaction.user,
-                        self.fixture['id'],
-                        'goalscorer',
-                        goalscorer,
-                    )
+                self.prediction_service.predict_event(
+                    interaction.user,
+                    self.fixture['id'],
+                    'goalscorer',
+                    goalscorer,
                 )
+                acknowledgement_lines.append(f'Predicted goalscorer: {goalscorer}.')
         except (ValueError, LookupError) as error:
             await _send_public_error(interaction, error)
             return
 
+        response_ephemeral = self.prediction_service.prediction_response_ephemeral(interaction.user)
         next_index = self.index + 1
         if next_index < len(self.fixtures):
             view = GuidedPredictionNextView(
@@ -249,22 +256,22 @@ class GuidedPredictionModal(discord.ui.Modal):
             )
             await interaction.response.send_message(
                 (
-                    '\n'.join(messages)
+                    '\n'.join(acknowledgement_lines)
                     + f'\nSaved fixture {self.index + 1} of {len(self.fixtures)}.'
                     + f'\nClick the button to open fixture {next_index + 1} of {len(self.fixtures)}.'
                 ),
                 view=view,
-                ephemeral=True,
+                ephemeral=response_ephemeral,
             )
             return
 
         await interaction.response.send_message(
             (
-                '\n'.join(messages)
+                '\n'.join(acknowledgement_lines)
                 + f'\nSaved fixture {self.index + 1} of {len(self.fixtures)}.'
                 + '\nPrediction batch complete.'
             ),
-            ephemeral=True,
+            ephemeral=response_ephemeral,
         )
 
 
@@ -494,7 +501,10 @@ def register_public_commands(bot):
             await _send_public_error(interaction, error)
             return
 
-        await interaction.response.send_message(message, ephemeral=True)
+        await interaction.response.send_message(
+            message,
+            ephemeral=prediction_service.prediction_response_ephemeral(interaction.user),
+        )
 
     @bot.tree.command(name='predict_form', description='Predict multiple open fixtures one by one')
     @app_commands.describe(
@@ -531,7 +541,7 @@ def register_public_commands(bot):
                     'Each submitted form is saved immediately.'
                 ),
                 view=GuidedPredictionNextView(prediction_service, interaction.user.id, fixtures, 0),
-                ephemeral=True,
+                ephemeral=prediction_service.prediction_response_ephemeral(interaction.user),
             )
             return
 
@@ -557,7 +567,10 @@ def register_public_commands(bot):
             await _send_public_error(interaction, error)
             return
 
-        await interaction.response.send_message(message, ephemeral=True)
+        await interaction.response.send_message(
+            message,
+            ephemeral=prediction_service.prediction_response_ephemeral(interaction.user),
+        )
 
     @bot.tree.command(name='rules', description='Show tournament scoring rules')
     @app_commands.describe(tournament_code='Optional tournament code')

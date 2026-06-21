@@ -5,6 +5,13 @@ from utils.validation import validate_fixture_open_for_prediction, validate_play
 
 class PredictionService:
     @db_transaction
+    def prediction_response_ephemeral(self, discord_user, db=None):
+        user = User.find_by_discord_user_id(db, discord_user.id)
+        if user is None:
+            return False
+        return user.prediction_visibility != 'public'
+
+    @db_transaction
     def get_predictable_fixture_details(self, fixture_id, db=None):
         fixture = Fixture.get_by_id(db, fixture_id)
         validate_fixture_open_for_prediction(fixture)
