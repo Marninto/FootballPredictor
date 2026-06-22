@@ -73,7 +73,9 @@ ADMIN_COMMAND_HELP = [
             '**/upsert_rules name:default config_json:{...}**\n'
             'Create or update scoring rules.\n\n'
             '**/update_fixture tournament_code:WC26 home_team:Mexico away_team:South Africa kickoff_at:2026-06-11T19:00:00Z**\n'
-            'Create or update a fixture.'
+            'Create or update a fixture.\n\n'
+            '**/import_fixtures tournament_code:PL26 filename:pl26**\n'
+            'Import fixtures from fixtures/pl26.json into a tournament.'
         ),
     },
     {

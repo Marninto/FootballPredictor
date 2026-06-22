@@ -1,10 +1,15 @@
 import json
+from pathlib import Path
 
 from db.pagination import paginate_query
 from db.database import db_transaction
 from db.models import EventPrediction, Fixture, FixtureEvent, Ruleset, ScorePrediction, Tournament, User
 from domain.scoring_rules import DEFAULT_RULESET_CONFIG, validate_ruleset_config
 from utils.boolean_prediction import parse_yes_no
+
+
+FIXTURE_IMPORT_DIRECTORY = Path(__file__).resolve().parents[1] / 'fixtures'
+REQUIRED_FIXTURE_IMPORT_KEYS = {'home_team', 'away_team', 'kickoff_at'}
 
 
 class TournamentService:
@@ -140,6 +145,34 @@ class TournamentService:
         return f'{action} fixture #{fixture.id}: {fixture.home_team} vs {fixture.away_team}.'
 
     @db_transaction
+    def import_fixtures(self, tournament_code, filename, db=None):
+        tournament = Tournament.get_by_code(db, tournament_code)
+        fixtures = self._load_fixture_import_file(filename)
+        created_count = 0
+        updated_count = 0
+
+        for fixture_data in fixtures:
+            fixture, created = Fixture.upsert_from_dict(
+                db,
+                {
+                    'tournament_id': tournament.id,
+                    'home_team': fixture_data['home_team'],
+                    'away_team': fixture_data['away_team'],
+                    'kickoff_at': fixture_data['kickoff_at'],
+                    'status': fixture_data.get('status', 'scheduled'),
+                },
+            )
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+
+        return (
+            f'Processed {len(fixtures)} fixtures for {tournament.code}. '
+            f'Created: {created_count}. Updated: {updated_count}.'
+        )
+
+    @db_transaction
     def update_fixture_score(self, data, db):
         fixture = Fixture.get_by_id(db, data['fixture_id'])
         Fixture.apply_score_update(fixture, data)
@@ -188,6 +221,30 @@ class TournamentService:
         if config_json:
             return validate_ruleset_config(config_json)
         return validate_ruleset_config(DEFAULT_RULESET_CONFIG)
+
+    def _load_fixture_import_file(self, filename):
+        if Path(filename).name != filename or Path(filename).suffix:
+            raise ValueError('Fixture filename must be a plain name without path or extension.')
+        fixture_path = FIXTURE_IMPORT_DIRECTORY / f'{filename}.json'
+        if not fixture_path.exists():
+            raise LookupError(f'Fixture file fixtures/{filename}.json was not found.')
+        with open(fixture_path, encoding='utf-8') as fixture_file:
+            data = json.load(fixture_file)
+        if isinstance(data, dict) and isinstance(data.get('fixtures'), list):
+            data = data['fixtures']
+        if not isinstance(data, list):
+            raise ValueError('Fixture import source must contain a JSON list or an object with a fixtures list.')
+
+        fixtures = []
+        for index, fixture in enumerate(data, start=1):
+            if not isinstance(fixture, dict):
+                raise ValueError(f'Fixture #{index} must be a JSON object.')
+            missing_keys = REQUIRED_FIXTURE_IMPORT_KEYS - set(fixture)
+            if missing_keys:
+                missing = ', '.join(sorted(missing_keys))
+                raise ValueError(f'Fixture #{index} is missing: {missing}.')
+            fixtures.append(fixture)
+        return fixtures
 
     def _actual_red_card_given(self, fixture):
         red_card_given_events = [

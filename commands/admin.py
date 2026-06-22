@@ -20,6 +20,7 @@ ADMIN_COMMAND_NAMES = {
     'announce_release_notes',
     'add_tournament',
     'update_fixture',
+    'import_fixtures',
     'update_score',
     'update_score_form',
     'recompute_points',
@@ -463,6 +464,30 @@ def register_admin_commands(bot, settings):
             return
 
         await interaction.response.send_message(message, ephemeral=True)
+        await _push_admin_log(interaction, message)
+
+    @bot.tree.command(name='import_fixtures', description='Import bundled fixtures into a tournament')
+    @app_commands.describe(
+        tournament_code='Tournament code to import fixtures into',
+        filename='Fixture JSON filename inside fixtures directory, without .json',
+    )
+    async def import_fixtures(
+        interaction: discord.Interaction,
+        tournament_code: str,
+        filename: str,
+    ):
+        if not _is_admin(interaction, settings):
+            await _deny_admin(interaction)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        try:
+            message = tournament_service.import_fixtures(tournament_code, filename)
+        except (ValueError, LookupError) as error:
+            await _send_admin_error(interaction, error)
+            return
+
+        await interaction.followup.send(message, ephemeral=True)
         await _push_admin_log(interaction, message)
 
     @bot.tree.command(name='update_score', description='Update final score and award score prediction points')
