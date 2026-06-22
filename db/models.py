@@ -311,6 +311,24 @@ class Fixture(TimestampMixin, Base):
         return statement.order_by(cls.kickoff_at, cls.id)
 
     @classmethod
+    def score_update_statement(cls, tournament_id, start_fixture_id=None, start_kickoff_at=None, only_unscored=False):
+        statement = select(cls).where(cls.tournament_id == int(tournament_id))
+        if only_unscored:
+            statement = statement.where((cls.home_score.is_(None)) | (cls.away_score.is_(None)))
+        if start_fixture_id is not None:
+            if start_kickoff_at is None:
+                statement = statement.where(cls.id >= int(start_fixture_id))
+            else:
+                statement = statement.where(
+                    (cls.kickoff_at > start_kickoff_at)
+                    | (
+                        (cls.kickoff_at == start_kickoff_at)
+                        & (cls.id >= int(start_fixture_id))
+                    )
+                )
+        return statement.order_by(cls.kickoff_at, cls.id)
+
+    @classmethod
     def upcoming_statement(cls, start_at, end_at):
         return (
             select(cls)
@@ -576,6 +594,15 @@ class FixtureEvent(TimestampMixin, Base):
         )
 
     @classmethod
+    def find_by_fixture_and_type(cls, db, fixture_id, event_type):
+        return db.scalars(
+            select(cls).where(
+                cls.fixture_id == int(fixture_id),
+                cls.event_type == event_type.strip(),
+            )
+        ).all()
+
+    @classmethod
     def upsert_from_dict(cls, db, data):
         fixture_event = cls.find_by_event_key(db, data)
         created = fixture_event is None
@@ -585,6 +612,19 @@ class FixtureEvent(TimestampMixin, Base):
 
         db.flush()
         return fixture_event, created
+
+    @classmethod
+    def set_boolean_event(cls, db, fixture_id, event_type, value):
+        cls.delete_by_fixture_and_type(db, fixture_id, event_type)
+        fixture_event = cls(
+            fixture_id=int(fixture_id),
+            event_type=event_type.strip(),
+            player_name='true' if value else 'false',
+            team_name='N/A',
+        )
+        db.add(fixture_event)
+        db.flush()
+        return fixture_event
 
     @classmethod
     def delete_by_fixture_and_type(cls, db, fixture_id, event_type):

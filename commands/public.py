@@ -98,6 +98,7 @@ def _fixtures_embed(data):
             else 'X-X'
         )
         predicted_goalscorers = ', '.join(item['predicted_goalscorers']) or 'N/A'
+        predicted_red_card_given = item['predicted_red_card_given'] or 'N/A'
         points_line = (
             f'\nPoints earned: {item["points_earned"]}'
             if item['points_earned'] is not None
@@ -109,7 +110,7 @@ def _fixtures_embed(data):
                 f'{item["home_team"]} {actual_score} {item["away_team"]}\n'
                 f'Predicted score: {predicted_score}\n'
                 f'Predicted Goalscorer: {predicted_goalscorers}\n'
-                f'Predicted: {str(item["predicted"]).lower()}'
+                f'Predicted Red Card Given: {predicted_red_card_given}'
                 f'{points_line}'
             ),
             inline=False,
@@ -220,6 +221,16 @@ class GuidedPredictionModal(discord.ui.Modal):
         self.add_item(self.home_score)
         self.add_item(self.away_score)
         self.add_item(self.goalscorer)
+        self.red_card_given = None
+        if fixture.get('red_card_given_enabled'):
+            self.red_card_given = discord.ui.TextInput(
+                label='Red card given? yes/no',
+                placeholder='Optional. Yes/no counts for points; blank skips this prediction.',
+                default=fixture.get('predicted_red_card_given'),
+                required=False,
+                max_length=5,
+            )
+            self.add_item(self.red_card_given)
 
     async def on_submit(self, interaction):
         if interaction.user.id != self.owner_id:
@@ -250,6 +261,15 @@ class GuidedPredictionModal(discord.ui.Modal):
                     goalscorer,
                 )
                 acknowledgement_lines.append(f'Predicted goalscorer: {goalscorer}.')
+            red_card_given = self.red_card_given.value.strip() if self.red_card_given is not None else ''
+            if red_card_given:
+                red_card_given_message = self.prediction_service.predict_event(
+                    interaction.user,
+                    self.fixture['id'],
+                    'red_card_given',
+                    red_card_given,
+                )
+                acknowledgement_lines.append(red_card_given_message)
         except (ValueError, LookupError) as error:
             await _send_public_error(interaction, error)
             return
@@ -558,16 +578,16 @@ def register_public_commands(bot):
             GuidedPredictionModal(prediction_service, interaction.user.id, fixtures, 0)
         )
 
-    @bot.tree.command(name='predict_event', description='Predict goalscorer or red card')
+    @bot.tree.command(name='predict_event', description='Predict an enabled fixture event')
     @app_commands.describe(
         fixture_id='Fixture id to predict',
         event_type='Event type to predict',
-        player_name='Player involved in the predicted event',
+        player_name='Player name, or yes/no for red_card_given',
     )
     async def predict_event(
         interaction: discord.Interaction,
         fixture_id: int,
-        event_type: Literal['goalscorer', 'red_card'],
+        event_type: Literal['goalscorer', 'red_card', 'red_card_given'],
         player_name: str,
     ):
         try:

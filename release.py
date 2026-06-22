@@ -1,4 +1,4 @@
-APP_VERSION = '0.0.4'
+APP_VERSION = '0.0.5'
 
 RELEASE_NOTES = {
     '0.0.1': ['Initial tracked release.'],
@@ -19,5 +19,12 @@ RELEASE_NOTES = {
         'Prediction confirmations now follow user visibility settings.',
         'Prediction form now supports updating existing predictions before kickoff.',
         'Improved help command with ordered sections and usage examples.',
+    ],
+    '0.0.5': [
+        'Added Premier League 2026/27 fixtures under tournament code PL26.',
+        'Added optional red-card-given prediction for rulesets that enable it.',
+        'Added red-card-given scoring with positive and negative point outcomes.',
+        'Fixtures now show your predicted score, goalscorer, and red-card-given prediction directly.',
+        'Prediction form without a fixture id now starts from the next open fixture you have not predicted.',
     ],
 }

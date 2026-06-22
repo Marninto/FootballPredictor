@@ -4,6 +4,7 @@ from db.pagination import paginate_query
 from db.database import db_transaction
 from db.models import EventPrediction, Fixture, FixtureEvent, Ruleset, ScorePrediction, Tournament, User
 from domain.scoring_rules import DEFAULT_RULESET_CONFIG, validate_ruleset_config
+from utils.boolean_prediction import parse_yes_no
 
 
 class TournamentService:
@@ -16,7 +17,41 @@ class TournamentService:
             'away_team': fixture.away_team,
             'home_score': fixture.home_score,
             'away_score': fixture.away_score,
+            'red_card_given': self._actual_red_card_given(fixture),
         }
+
+    @db_transaction
+    def get_score_form_fixtures(self, tournament_code, count, start_fixture_id=None, db=None):
+        count = int(count)
+        if count < 1 or count > 5:
+            raise ValueError('count must be between 1 and 5.')
+
+        tournament = Tournament.get_by_code(db, tournament_code)
+        start_kickoff_at = None
+        if start_fixture_id is not None:
+            start_fixture = Fixture.get_by_id(db, start_fixture_id)
+            if start_fixture.tournament_id != tournament.id:
+                raise ValueError(f'Fixture {start_fixture_id} is not in tournament {tournament.code}.')
+            start_kickoff_at = start_fixture.kickoff_at
+
+        statement = Fixture.score_update_statement(
+            tournament.id,
+            start_fixture_id=start_fixture_id,
+            start_kickoff_at=start_kickoff_at,
+            only_unscored=start_fixture_id is None,
+        )
+        fixtures = db.scalars(statement.limit(count)).all()
+        return [
+            {
+                'id': fixture.id,
+                'home_team': fixture.home_team,
+                'away_team': fixture.away_team,
+                'home_score': fixture.home_score,
+                'away_score': fixture.away_score,
+                'red_card_given': self._actual_red_card_given(fixture),
+            }
+            for fixture in fixtures
+        ]
 
     @db_transaction
     def list_active_tournaments(self, page=1, page_size=10, db=None):
@@ -108,6 +143,14 @@ class TournamentService:
     def update_fixture_score(self, data, db):
         fixture = Fixture.get_by_id(db, data['fixture_id'])
         Fixture.apply_score_update(fixture, data)
+        red_card_given = data.get('red_card_given')
+        if red_card_given is not None:
+            FixtureEvent.set_boolean_event(
+                db,
+                fixture.id,
+                'red_card_given',
+                parse_yes_no(red_card_given, 'Actual red card given'),
+            )
         db.flush()
         return f'Updated final score for fixture #{fixture.id}: {fixture.home_score}-{fixture.away_score}.'
 
@@ -146,6 +189,16 @@ class TournamentService:
             return validate_ruleset_config(config_json)
         return validate_ruleset_config(DEFAULT_RULESET_CONFIG)
 
+    def _actual_red_card_given(self, fixture):
+        red_card_given_events = [
+            event for event in fixture.fixture_events if event.event_type == 'red_card_given'
+        ]
+        if red_card_given_events:
+            return red_card_given_events[-1].player_name
+        if any(event.event_type == 'red_card' for event in fixture.fixture_events):
+            return 'true'
+        return None
+
     def _fixture_item(self, db, fixture, user_id):
         prediction = ScorePrediction.find_by_user_and_fixture(db, user_id, fixture.id) if user_id else None
         event_predictions = (
@@ -156,6 +209,10 @@ class TournamentService:
         goalscorer_predictions = [
             event for event in event_predictions if event.event_type == 'goalscorer'
         ]
+        red_card_given_prediction = next(
+            (event.player_name for event in event_predictions if event.event_type == 'red_card_given'),
+            None,
+        )
         fixture_updated = fixture.home_score is not None and fixture.away_score is not None
         score_points = prediction.points_awarded if prediction else 0
         event_points = sum(event.points_awarded for event in event_predictions)
@@ -169,6 +226,6 @@ class TournamentService:
             'home_score': fixture.home_score,
             'away_score': fixture.away_score,
             'predicted_goalscorers': [event.player_name for event in goalscorer_predictions],
-            'predicted': prediction is not None or bool(event_predictions),
+            'predicted_red_card_given': red_card_given_prediction,
             'points_earned': score_points + event_points if fixture_updated else None,
         }

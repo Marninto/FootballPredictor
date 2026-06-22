@@ -12,7 +12,12 @@ DEFAULT_RULESET_CONFIG = {
     },
     'event_prediction': {
         'goalscorer': 10,
-        'red_card': 10,
+        'red_card_given': {
+            'yes_correct': 10,
+            'yes_incorrect': -2,
+            'no_correct': 2,
+            'no_incorrect': -10,
+        },
     },
 }
 
@@ -24,7 +29,6 @@ REQUIRED_RULESET_KEYS = {
     },
     'event_prediction': {
         'goalscorer',
-        'red_card',
     },
 }
 
@@ -47,5 +51,28 @@ def validate_ruleset_config(config):
             value = section_config[key]
             if not isinstance(value, int) or value < 0:
                 raise ValueError(f'Ruleset config {section}.{key} must be a non-negative integer.')
+
+    event_rules = config['event_prediction']
+    if 'goalscorer' in event_rules and (
+        not isinstance(event_rules['goalscorer'], int) or event_rules['goalscorer'] < 0
+    ):
+        raise ValueError('Ruleset config event_prediction.goalscorer must be a non-negative integer.')
+
+    if 'red_card' in event_rules and (
+        not isinstance(event_rules['red_card'], int) or event_rules['red_card'] < 0
+    ):
+        raise ValueError('Ruleset config event_prediction.red_card must be a non-negative integer.')
+
+    if 'red_card_given' in event_rules:
+        red_card_given = event_rules['red_card_given']
+        if not isinstance(red_card_given, dict):
+            raise ValueError('Ruleset config event_prediction.red_card_given must be an object.')
+        missing_keys = {'yes_correct', 'yes_incorrect', 'no_correct', 'no_incorrect'} - set(red_card_given)
+        if missing_keys:
+            missing = ', '.join(sorted(missing_keys))
+            raise ValueError(f'Ruleset config event_prediction.red_card_given is missing: {missing}.')
+        for key in ('yes_correct', 'yes_incorrect', 'no_correct', 'no_incorrect'):
+            if not isinstance(red_card_given[key], int):
+                raise ValueError(f'Ruleset config event_prediction.red_card_given.{key} must be an integer.')
 
     return config

@@ -84,10 +84,22 @@ class AdminScoreUpdateService:
             )
             for event in fixture.fixture_events
         }
+        red_card_was_given = self._red_card_was_given(fixture)
 
         updated_count = 0
         awarded_users = {}
+        removed_users = {}
         for prediction in EventPrediction.find_by_fixture(db, fixture.id):
+            if prediction.event_type == 'red_card_given':
+                points, reason = self._red_card_given_points(prediction, fixture, red_card_was_given, rules)
+                EventPrediction.award_points(prediction, points, reason)
+                if points > 0:
+                    self._record_award(awarded_users, prediction.user, points)
+                elif points < 0:
+                    self._record_award(removed_users, prediction.user, points)
+                updated_count += 1
+                continue
+
             event_key = (
                 prediction.event_type.strip(),
                 prediction.player_name.strip().casefold(),
@@ -105,6 +117,7 @@ class AdminScoreUpdateService:
         return {
             'message': f'Awarded event prediction points for {updated_count} predictions.',
             'awarded_users': self._awarded_user_items(awarded_users),
+            'removed_users': self._awarded_user_items(removed_users),
         }
 
     @db_transaction
@@ -171,6 +184,29 @@ class AdminScoreUpdateService:
         if event_type == 'goal':
             return 'goalscorer'
         return event_type
+
+    def _red_card_given_points(self, prediction, fixture, red_card_was_given, rules):
+        if 'red_card_given' not in rules:
+            return 0, 'disabled'
+        if fixture.home_score is None or fixture.away_score is None:
+            return 0, 'pending_final_score'
+        red_card_rules = rules.get('red_card_given', {})
+        predicted_red_card = prediction.player_name.strip().casefold() == 'true'
+        if predicted_red_card and red_card_was_given:
+            return int(red_card_rules.get('yes_correct', 0)), 'red_card_given_yes_correct'
+        if predicted_red_card and not red_card_was_given:
+            return int(red_card_rules.get('yes_incorrect', 0)), 'red_card_given_yes_incorrect'
+        if not predicted_red_card and not red_card_was_given:
+            return int(red_card_rules.get('no_correct', 0)), 'red_card_given_no_correct'
+        return int(red_card_rules.get('no_incorrect', 0)), 'red_card_given_no_incorrect'
+
+    def _red_card_was_given(self, fixture):
+        red_card_given_events = [
+            event for event in fixture.fixture_events if event.event_type == 'red_card_given'
+        ]
+        if red_card_given_events:
+            return red_card_given_events[-1].player_name.strip().casefold() == 'true'
+        return any(event.event_type == 'red_card' for event in fixture.fixture_events)
 
     def _awarded_user_items(self, awarded_users):
         return [
