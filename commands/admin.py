@@ -19,6 +19,7 @@ ADMIN_COMMAND_NAMES = {
     'run_announcement_now',
     'announce_release_notes',
     'add_tournament',
+    'close_tournament',
     'update_fixture',
     'import_fixtures',
     'update_score',
@@ -60,8 +61,29 @@ async def _push_admin_log(interaction, message):
     await push_admin_log(interaction.client, f'{message}\nTriggered by: {interaction.user.mention}')
 
 
+async def _active_tournament_autocomplete(interaction, current):
+    tournament_service = TournamentService()
+    return [
+        app_commands.Choice(name=choice['name'], value=choice['value'])
+        for choice in tournament_service.active_tournament_choices(current)
+    ]
+
+
 def _format_datetime(value):
     return 'N/A' if value is None else value.strftime('%Y-%m-%d %H:%M UTC')
+
+
+def _fixture_log_label(fixture_id):
+    try:
+        fixture = TournamentService().get_fixture_details(fixture_id)
+    except LookupError:
+        return f'Fixture #{fixture_id}'
+    if fixture['home_score'] is not None and fixture['away_score'] is not None:
+        return (
+            f'Fixture #{fixture["id"]} '
+            f'{fixture["home_team"]} {fixture["home_score"]}-{fixture["away_score"]} {fixture["away_team"]}'
+        )
+    return f'Fixture #{fixture["id"]} {fixture["home_team"]} vs {fixture["away_team"]}'
 
 
 async def _push_prediction_awards(interaction, fixture_id, prediction_type, awarded_users):
@@ -73,7 +95,7 @@ async def _push_prediction_awards(interaction, fixture_id, prediction_type, awar
     )
     await push_prediction_award_log(
         interaction.client,
-        f'Fixture #{fixture_id} {prediction_type} prediction points awarded to: {recipients}',
+        f'{_fixture_log_label(fixture_id)} {prediction_type} prediction points awarded to: {recipients}',
     )
 
 
@@ -86,7 +108,7 @@ async def _push_prediction_point_losses(interaction, fixture_id, prediction_type
     )
     await push_prediction_award_log(
         interaction.client,
-        f'Fixture #{fixture_id} {prediction_type} prediction points lost by: {recipients}',
+        f'{_fixture_log_label(fixture_id)} {prediction_type} prediction points lost by: {recipients}',
     )
 
 
@@ -99,7 +121,7 @@ async def _push_prediction_removals(interaction, fixture_id, prediction_type, re
     )
     await push_prediction_award_log(
         interaction.client,
-        f'Fixture #{fixture_id} {prediction_type} prediction points removed from: {recipients}',
+        f'{_fixture_log_label(fixture_id)} {prediction_type} prediction points removed from: {recipients}',
     )
 
 
@@ -439,6 +461,7 @@ def register_admin_commands(bot, settings):
         away_team='Away team',
         kickoff_at='Kickoff time in ISO format',
     )
+    @app_commands.autocomplete(tournament_code=_active_tournament_autocomplete)
     async def update_fixture(
         interaction: discord.Interaction,
         tournament_code: str,
@@ -466,11 +489,29 @@ def register_admin_commands(bot, settings):
         await interaction.response.send_message(message, ephemeral=True)
         await _push_admin_log(interaction, message)
 
+    @bot.tree.command(name='close_tournament', description='Close an active tournament')
+    @app_commands.describe(tournament_code='Tournament code to close')
+    @app_commands.autocomplete(tournament_code=_active_tournament_autocomplete)
+    async def close_tournament(interaction: discord.Interaction, tournament_code: str):
+        if not _is_admin(interaction, settings):
+            await _deny_admin(interaction)
+            return
+
+        try:
+            message = tournament_service.close_tournament(tournament_code)
+        except LookupError as error:
+            await _send_admin_error(interaction, error)
+            return
+
+        await interaction.response.send_message(message, ephemeral=True)
+        await _push_admin_log(interaction, message)
+
     @bot.tree.command(name='import_fixtures', description='Import bundled fixtures into a tournament')
     @app_commands.describe(
         tournament_code='Tournament code to import fixtures into',
         filename='Fixture JSON filename inside fixtures directory, without .json',
     )
+    @app_commands.autocomplete(tournament_code=_active_tournament_autocomplete)
     async def import_fixtures(
         interaction: discord.Interaction,
         tournament_code: str,
@@ -532,6 +573,7 @@ def register_admin_commands(bot, settings):
         count='Number of fixtures to update in batch mode',
         start_fixture_id='Optional fixture id to start batch mode from',
     )
+    @app_commands.autocomplete(tournament_code=_active_tournament_autocomplete)
     async def update_score_form(
         interaction: discord.Interaction,
         fixture_id: int | None = None,

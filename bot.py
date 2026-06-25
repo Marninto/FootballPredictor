@@ -70,6 +70,8 @@ ADMIN_COMMAND_HELP = [
         'value': (
             '**/add_tournament name:World Cup code:WC26**\n'
             'Create or update a tournament.\n\n'
+            '**/close_tournament tournament_code:WC26**\n'
+            'Close an active tournament so it no longer appears in tournament selectors.\n\n'
             '**/upsert_rules name:default config_json:{...}**\n'
             'Create or update scoring rules.\n\n'
             '**/update_fixture tournament_code:WC26 home_team:Mexico away_team:South Africa kickoff_at:2026-06-11T19:00:00Z**\n'

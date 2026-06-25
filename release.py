@@ -1,4 +1,4 @@
-APP_VERSION = '0.0.5'
+APP_VERSION = '0.0.6'
 
 RELEASE_NOTES = {
     '0.0.1': ['Initial tracked release.'],
@@ -26,5 +26,9 @@ RELEASE_NOTES = {
         'Added red-card-given scoring with positive and negative point outcomes.',
         'Fixtures now show your predicted score, goalscorer, and red-card-given prediction directly.',
         'Prediction form without a fixture id now starts from the next open fixture you have not predicted.',
+    ],
+    '0.0.6': [
+        'Score point announcements now include the fixture teams and scoreline.',
+        'Tournament code fields now suggest active tournaments where supported.',
     ],
 }

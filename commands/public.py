@@ -129,6 +129,14 @@ async def _send_public_error(interaction, error):
     await interaction.response.send_message(str(error), ephemeral=True)
 
 
+async def _active_tournament_autocomplete(interaction, current):
+    tournament_service = TournamentService()
+    return [
+        app_commands.Choice(name=choice['name'], value=choice['value'])
+        for choice in tournament_service.active_tournament_choices(current)
+    ]
+
+
 def _parse_score(value, team_name):
     try:
         score = int(value)
@@ -496,6 +504,7 @@ def register_public_commands(bot):
         tournament_code='Tournament code',
         fixture_filter='Fixture filter',
     )
+    @app_commands.autocomplete(tournament_code=_active_tournament_autocomplete)
     async def fixtures(
         interaction: discord.Interaction,
         tournament_code: str,
@@ -541,6 +550,7 @@ def register_public_commands(bot):
         tournament_code='Tournament code',
         start_fixture_id='Optional fixture id to start from',
     )
+    @app_commands.autocomplete(tournament_code=_active_tournament_autocomplete)
     async def predict_form(
         interaction: discord.Interaction,
         count: app_commands.Range[int, 1, 5],
@@ -603,6 +613,7 @@ def register_public_commands(bot):
 
     @bot.tree.command(name='rules', description='Show tournament scoring rules')
     @app_commands.describe(tournament_code='Optional tournament code')
+    @app_commands.autocomplete(tournament_code=_active_tournament_autocomplete)
     async def rules(interaction: discord.Interaction, tournament_code: str | None = None):
         try:
             ruleset_name, config_json = tournament_service.show_rules(tournament_code)
@@ -617,6 +628,7 @@ def register_public_commands(bot):
         tournament_code='Optional tournament code',
         point_filter='Leaderboard point filter',
     )
+    @app_commands.autocomplete(tournament_code=_active_tournament_autocomplete)
     async def leaderboard(
         interaction: discord.Interaction,
         tournament_code: str | None = None,
@@ -650,6 +662,7 @@ def register_public_commands(bot):
         tournament_code='Optional tournament filter',
         page='Page number',
     )
+    @app_commands.autocomplete(tournament_code=_active_tournament_autocomplete)
     async def predictions(
         interaction: discord.Interaction,
         user: discord.Member | None = None,

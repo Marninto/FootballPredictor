@@ -14,6 +14,20 @@ REQUIRED_FIXTURE_IMPORT_KEYS = {'home_team', 'away_team', 'kickoff_at'}
 
 class TournamentService:
     @db_transaction
+    def active_tournament_choices(self, current='', db=None):
+        current = current.strip().casefold()
+        tournaments = db.scalars(Tournament.active_statement()).all()
+        choices = []
+        for tournament in tournaments:
+            label = f'{tournament.code} - {tournament.name}'
+            if current and current not in tournament.code.casefold() and current not in tournament.name.casefold():
+                continue
+            choices.append({'name': label[:100], 'value': tournament.code})
+            if len(choices) >= 25:
+                break
+        return choices
+
+    @db_transaction
     def get_fixture_details(self, fixture_id, db=None):
         fixture = Fixture.get_by_id(db, fixture_id)
         return {
@@ -127,6 +141,13 @@ class TournamentService:
         )
         action = 'Created' if created else 'Updated'
         return f'{action} tournament {tournament.name} ({tournament.code}).'
+
+    @db_transaction
+    def close_tournament(self, tournament_code, db=None):
+        tournament = Tournament.get_by_code(db, tournament_code)
+        tournament.status = 'closed'
+        db.flush()
+        return f'Closed tournament {tournament.name} ({tournament.code}).'
 
     @db_transaction
     def upsert_fixture(self, data, db):
